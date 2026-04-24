@@ -121,6 +121,7 @@ jobs:
             ```
             Clic droit sur l'app → Ouvrir → Ouvrir quand même
             ```
-          releaseDraft: true # Crée un brouillon — tu valides manuellement
+          # create a draft release (not published) to allow manual review before publishing
+          releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
