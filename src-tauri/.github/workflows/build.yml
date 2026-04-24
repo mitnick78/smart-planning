@@ -122,6 +122,6 @@ jobs:
             Clic droit sur l'app → Ouvrir → Ouvrir quand même
             ```
           # create a draft release (not published) to allow manual review before publishing
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
