@@ -1,0 +1,126 @@
+name: Build & Release Smart Planning Pro
+
+# this workflow runs on new tags (e.g., v0.1.0) and can also be triggered manually
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS Apple Silicon (M1/M2/M3)
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macOS Apple Silicon
+
+          #  macOS Intel
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            label: macOS Intel
+
+          #  Windows
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: Windows
+
+          # Linux
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: Linux
+
+    runs-on: ${{ matrix.platform }}
+    name: Build ${{ matrix.label }}
+
+    steps:
+      # checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # install Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      # install Rustup and Rust toolchain
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # cached Rust dependencies for faster builds
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workdir: src-tauri
+          key: ${{ matrix.target }}
+
+      # dependcies linux
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+
+      # fix icons to RGBA
+      - name: Fix icons to RGBA
+        run: |
+          pip3 install Pillow
+          python3 -c "
+          from PIL import Image
+          import os
+          icons_dir = 'src-tauri/icons'
+          for f in os.listdir(icons_dir):
+              if f.endswith('.png'):
+                  path = os.path.join(icons_dir, f)
+                  img = Image.open(path).convert('RGBA')
+                  img.save(path)
+                  print(f'OK: {f}')
+          "
+
+      #  dependcies frontend
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      # Build Tauri
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Smart Planning Pro ${{ github.ref_name }}"
+          releaseBody: |
+            ## Smart Planning Pro ${{ github.ref_name }}
+
+            ### Téléchargements
+            - **macOS Apple Silicon** (M1/M2/M3) → fichier `_aarch64.dmg`
+            - **macOS Intel** → fichier `_x64.dmg`
+            - **Windows** → fichier `.msi`
+            - **Linux** → fichier `.AppImage` ou `.deb`
+
+            ### Installation macOS
+            Si macOS bloque l'ouverture :
+            ```
+            Clic droit sur l'app → Ouvrir → Ouvrir quand même
+            ```
+          releaseDraft: true # Crée un brouillon — tu valides manuellement
+          prerelease: false
+          args: --target ${{ matrix.target }}
