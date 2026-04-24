@@ -1,6 +1,5 @@
 name: Build & Release Smart Planning Pro
 
-# this workflow runs on new tags (e.g., v0.1.0) and can also be triggered manually
 on:
   push:
     tags:
@@ -13,22 +12,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS Apple Silicon (M1/M2/M3)
           - platform: macos-latest
             target: aarch64-apple-darwin
             label: macOS Apple Silicon
-
-          #  macOS Intel
           - platform: macos-latest
             target: x86_64-apple-darwin
             label: macOS Intel
-
-          #  Windows
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             label: Windows
-
-          # Linux
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             label: Linux
@@ -37,32 +29,26 @@ jobs:
     name: Build ${{ matrix.label }}
 
     steps:
-      # checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # install Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
 
-      # install Rustup and Rust toolchain
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      # cached Rust dependencies for faster builds
+      # ✅ workdir remplacé par workspaces
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
         with:
-          workdir: src-tauri
+          workspaces: src-tauri -> target
           key: ${{ matrix.target }}
 
-      # dependcies linux
       - name: Install Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -76,10 +62,10 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
 
-      # fix icons to RGBA
+      # ✅ --break-system-packages ajouté
       - name: Fix icons to RGBA
         run: |
-          pip3 install Pillow
+          pip3 install Pillow --break-system-packages
           python3 -c "
           from PIL import Image
           import os
@@ -89,16 +75,14 @@ jobs:
                   path = os.path.join(icons_dir, f)
                   img = Image.open(path).convert('RGBA')
                   img.save(path)
-                  print(f'OK: {f}')
+                  print('OK:', f)
           "
 
-      #  dependcies frontend
       - name: Install frontend dependencies
         run: |
           cd frontend
           npm ci
 
-      # Build Tauri
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -121,7 +105,6 @@ jobs:
             ```
             Clic droit sur l'app → Ouvrir → Ouvrir quand même
             ```
-          # create a draft release (not published) to allow manual review before publishing
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
