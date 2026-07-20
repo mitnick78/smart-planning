@@ -16,7 +16,7 @@
 - 🏷️ **Labels personnalisés** — Créez, modifiez et supprimez vos catégories avec couleurs personnalisées
 - ⏰ **Gestion des périodes** — Assignez des labels par créneau : Matin, Après-midi, Soir ou Journée
 - 📊 **Statistiques en temps réel** — Décompte automatique des créneaux par label et par période
-- 📤 **Export Excel** — Exportez vos plannings en fichier `.xlsx` avec mise en forme colorée
+- 📤 **Export Excel & PDF** — Exportez vos plannings avec mise en forme colorée
 - 💾 **Persistance locale** — Données stockées en SQLite, fonctionne entièrement hors ligne
 - 🌙 **Thème sombre** — Interface moderne et élégante
 
@@ -35,7 +35,7 @@
 │ • Papy Michel│  [ ] [☀️École] [ ] [ ]      │ École  : 8j   │
 │              │                              │ Maman  : 4j   │
 │ Label actif  │                              │               │
-│ [🔵 École]   │                              │ Exporter Excel│
+│ [🔵 École]   │                              │ Excel  | PDF  │
 └──────────────┴──────────────────────────────┴───────────────┘
 ```
 
@@ -83,14 +83,43 @@ xattr -cr "/Applications/Smart Planning Pro.app"
 git clone https://github.com/TON-USERNAME/smart-planning-pro.git
 cd smart-planning-pro
 
-# Installe les dépendances frontend
-cd frontend && npm install && cd ..
-
-# Lance en mode développement
-cargo tauri dev
+# Installe toutes les dépendances
+make install
 ```
 
-### Build
+### Commandes Makefile
+
+```bash
+make dev          # Lance l'app en développement
+make install      # Installe toutes les dépendances
+make build        # Build natif (architecture courante)
+make build-arm    # Build Apple Silicon (M1/M2/M3)
+make build-intel  # Build Intel
+make build-all    # Build les deux architectures
+make test         # Lance les tests Rust
+make fix-icons    # Convertit les icônes en RGBA
+make copy-arm     # Copie DMG Apple Silicon dans ~/Downloads/
+make copy-intel   # Copie DMG Intel dans ~/Downloads/
+make copy-all     # Copie les deux DMG dans ~/Downloads/
+make release      # Build + copie tout dans ~/Downloads/
+make clean        # Nettoie les fichiers de build
+make help         # Affiche toutes les commandes
+```
+
+### Release complète en une commande
+
+```bash
+make release
+```
+
+Ça fait tout automatiquement :
+
+1. Convertit les icônes en RGBA
+2. Build Apple Silicon
+3. Build Intel
+4. Copie les deux DMG dans `~/Downloads/`
+
+### Build manuel
 
 ```bash
 # macOS Apple Silicon
@@ -112,11 +141,13 @@ cargo tauri build
 
 ```
 smart-planning-pro/
+├── Makefile                    # Commandes de build
 ├── src-tauri/                  # Backend Rust
 │   └── src/
 │       ├── lib.rs              # Point d'entrée Tauri
 │       ├── commands.rs         # Commandes Tauri (pont Rust ↔ React)
 │       ├── export_service.rs   # Export Excel
+│       ├── pdf_export_service.rs # Export PDF
 │       ├── database/
 │       │   └── mod.rs          # Connexion SQLite
 │       ├── models/
@@ -181,6 +212,7 @@ CREATE TABLE planning (
 | [SQLite](https://www.sqlite.org/)                  | Base de données locale  |
 | [rusqlite](https://github.com/rusqlite/rusqlite)   | Driver SQLite pour Rust |
 | [rust_xlsxwriter](https://docs.rs/rust_xlsxwriter) | Export Excel            |
+| [printpdf](https://docs.rs/printpdf)               | Export PDF              |
 | [serde](https://serde.rs/)                         | Sérialisation JSON      |
 
 ### Frontend
@@ -200,7 +232,6 @@ CREATE TABLE planning (
 - [ ] Notes par créneau
 - [ ] Vue hebdomadaire
 - [ ] Undo / Redo
-- [ ] Export PDF
 - [ ] Graphiques statistiques
 - [ ] Gestion multi-planning
 - [ ] Jours fériés automatiques
