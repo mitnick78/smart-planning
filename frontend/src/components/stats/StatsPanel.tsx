@@ -9,16 +9,19 @@ import {
   Button,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload, IconFileTypePdf } from "@tabler/icons-react";
 import { useStats } from "@/hooks";
 import { PERIOD_EMOJI } from "@/types";
 import type { Period } from "@/types";
+
 import ExportModal from "./ExportModal";
 
 export default function StatsPanel() {
   const { groupedStats, totalAssigned, currentYear, currentMonth } = useStats();
+
   const [exportOpened, { open: openExport, close: closeExport }] =
     useDisclosure(false);
+  const [pdfOpened, { open: openPdf, close: closePdf }] = useDisclosure(false);
 
   return (
     <>
@@ -26,6 +29,7 @@ export default function StatsPanel() {
         <Text size="xs" fw={500} c="dimmed" tt="uppercase" mb={4}>
           Statistiques
         </Text>
+
         <Box
           p="xs"
           style={{
@@ -101,22 +105,44 @@ export default function StatsPanel() {
 
         <Divider />
 
-        <Button
-          variant="subtle"
-          leftSection={<IconDownload size={14} />}
-          size="xs"
-          onClick={openExport}
-          fullWidth
-        >
-          Exporter Excel
-        </Button>
+        {/* Boutons Export */}
+        <Group grow>
+          <Button
+            variant="subtle"
+            leftSection={<IconDownload size={14} />}
+            size="xs"
+            onClick={openExport}
+          >
+            Excel
+          </Button>
+          <Button
+            variant="subtle"
+            color="red"
+            leftSection={<IconFileTypePdf size={14} />}
+            size="xs"
+            onClick={openPdf}
+          >
+            PDF
+          </Button>
+        </Group>
       </Stack>
 
+      {/* Modale Excel */}
       <ExportModal
         opened={exportOpened}
         onClose={closeExport}
         currentYear={currentYear}
         currentMonth={currentMonth}
+        mode="excel"
+      />
+
+      {/* Modale PDF */}
+      <ExportModal
+        opened={pdfOpened}
+        onClose={closePdf}
+        currentYear={currentYear}
+        currentMonth={currentMonth}
+        mode="pdf"
       />
     </>
   );

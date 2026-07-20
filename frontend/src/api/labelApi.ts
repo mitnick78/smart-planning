@@ -28,8 +28,10 @@ export const createLabel = async (input: LabelCreateinput): Promise<Label> => {
 
 // UPDATE AN EXISTING LABEL
 export const updateLabel = async (input: LabelUpdateInput): Promise<Label> => {
+  console.log("api label", input)
   try {
     const updatedLabel = await invoke<Label>("update_label", {
+      id: input.id,
       name: input.name,
       colorHex: input.colorHex,
     });

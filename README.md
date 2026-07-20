@@ -200,7 +200,7 @@ CREATE TABLE planning (
 - [ ] Notes par créneau
 - [ ] Vue hebdomadaire
 - [ ] Undo / Redo
-- [x] Export PDF
+- [ ] Export PDF
 - [ ] Graphiques statistiques
 - [ ] Gestion multi-planning
 - [ ] Jours fériés automatiques

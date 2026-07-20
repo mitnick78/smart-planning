@@ -48,6 +48,9 @@ pub fn export_months_to_excel(
     let mut workbook = Workbook::new();
     let sheet = workbook.add_worksheet();
     sheet.set_name(&format!("Planning {}", year))?;
+    sheet.set_landscape();
+    sheet.set_paper_size(9);
+    sheet.set_print_fit_to_pages(1,0);
 
     // Formats 
     let title_format = Format::new()

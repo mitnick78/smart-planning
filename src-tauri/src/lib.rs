@@ -13,8 +13,12 @@ pub mod planning_repository;
 #[path = "export_service.rs"]
 pub mod export_service;
 
+#[path = "pdf_export_service.rs"]
+pub mod pdf_export_service;
 #[path = "commands.rs"]                          // ← ajoute
 pub mod commands;
+
+
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -42,6 +46,7 @@ pub fn run() {
       commands::delete_planning,
       commands::get_stats_by_month,
       commands::export_to_excel,
+      commands::export_to_pdf,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

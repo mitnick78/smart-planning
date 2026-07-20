@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useAppStore } from "@/store/appStore";
 import * as labelApi from "@/api/labelApi";
 import type { LabelCreateinput, LabelUpdateInput } from "@/types";
+import * as planningApi from "@/api/planningApi";
 
 export const useLabels = () => {
   // Store state
@@ -73,6 +74,14 @@ export const useLabels = () => {
           colorHex: input.colorHex,
           createdAt: existingLabel?.createdAt ?? new Date().toISOString(), // garde la date de création
         });
+        const { currentYear, currentMonth, setEntries, setStats } =
+          useAppStore.getState();
+        const [entries, stats] = await Promise.all([
+          planningApi.getPlanningByMonth(currentYear, currentMonth),
+          planningApi.getStatsByMonth(currentYear, currentMonth),
+        ]);
+        setEntries(entries);
+        setStats(stats);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur mise à jour");
         throw err;

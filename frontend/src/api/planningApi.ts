@@ -65,3 +65,6 @@ export const exportToExcel = (
   year: number,
   months: number[],
 ): Promise<string> => invoke<string>("export_to_excel", { year, months });
+
+export const exportToPdf = (year: number, months: number[]): Promise<string> =>
+  invoke<string>("export_to_pdf", { year, months });

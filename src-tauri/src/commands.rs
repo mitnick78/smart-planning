@@ -151,3 +151,15 @@ pub fn export_to_excel(year: i32, months: Vec<u32>) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
+
+#[tauri::command]
+pub fn export_to_pdf(year: i32, months: Vec<u32>) -> Result<String, String> {
+    let mut path = dirs::document_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    path.push(format!("planning_{}.pdf", year));
+
+    crate::pdf_export_service::export_months_to_pdf(year, &months, &path)
+        .map_err(|e| e.to_string())?;
+
+    Ok(path.to_string_lossy().to_string())
+}

@@ -94,7 +94,10 @@ export default function LabelsPanel() {
       });
       notifications.show({ message: "Label mis à jour", color: "green" });
       closeEdit();
-    } catch {
+    } catch (err) {
+      if (err instanceof Error) {
+        console.log("erreur est survenu", err.message);
+      }
       notifications.show({
         message: "Erreur lors de la mise à jour",
         color: "red",
@@ -273,6 +276,23 @@ export default function LabelsPanel() {
                 "#ff6b6b",
                 "#74c0fc",
               ]}
+            />
+            <TextInput
+              mt="xs"
+              placeholder="#3B82F6"
+              value={newColor}
+              onChange={(e) => setNewColor(e.target.value)}
+              leftSection={
+                <div
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 4,
+                    background: newColor,
+                    border: "1px solid var(--mantine-color-dark-4)",
+                  }}
+                />
+              }
             />
           </div>
           <Group justify="flex-end">
