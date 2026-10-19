@@ -5,8 +5,10 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+
 permissions:
   contents: write
+
 jobs:
   build:
     strategy:
@@ -43,7 +45,6 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # ✅ workdir remplacé par workspaces
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
         with:
@@ -63,20 +64,40 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
 
-      # ✅ --break-system-packages ajouté
       - name: Fix icons to RGBA
+        shell: bash
         run: |
-          pip3 install Pillow --break-system-packages
+          if pip3 install Pillow --break-system-packages 2>/dev/null; then
+            echo "Pillow installé avec --break-system-packages"
+          else
+            pip3 install Pillow
+          fi
+
           python3 -c "
           from PIL import Image
           import os
+
           icons_dir = 'src-tauri/icons'
+
           for f in os.listdir(icons_dir):
               if f.endswith('.png'):
                   path = os.path.join(icons_dir, f)
                   img = Image.open(path).convert('RGBA')
                   img.save(path)
-                  print('OK:', f)
+                  print('OK PNG:', f)
+
+          sizes = [16, 32, 48, 64, 128, 256]
+          images = []
+          for size in sizes:
+              src = os.path.join(icons_dir, f'{size}x{size}.png')
+              if os.path.exists(src):
+                  img = Image.open(src).convert('RGBA').resize((size, size), Image.LANCZOS)
+                  images.append(img)
+
+          if images:
+              ico_path = os.path.join(icons_dir, 'icon.ico')
+              images[0].save(ico_path, format='ICO', sizes=[(i.width, i.height) for i in images], append_images=images[1:])
+              print('OK ICO regenerated with', len(images), 'sizes')
           "
 
       - name: Install frontend dependencies
@@ -103,9 +124,3 @@ jobs:
 
             ### Installation macOS
             Si macOS bloque l'ouverture :
-            ```
-            Clic droit sur l'app → Ouvrir → Ouvrir quand même
-            ```
-          releaseDraft: true
-          prerelease: false
-          args: --target ${{ matrix.target }}
