@@ -55,10 +55,6 @@ pub fn export_months_to_excel(
         .set_align(FormatAlign::Center)
         .set_border(FormatBorder::Thin);
 
-    let fmt_label = Format::new()
-        .set_bold()
-        .set_border(FormatBorder::Thin);
-
     let fmt_empty = Format::new()
         .set_font_color(Color::RGB(0xAAAAAA))
         .set_align(FormatAlign::Center)
