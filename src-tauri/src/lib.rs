@@ -46,7 +46,7 @@ pub fn run() {
       commands::delete_planning,
       commands::get_stats_by_month,
       commands::export_to_excel,
-      commands::export_to_pdf,
+      commands::export_to_pdf, 
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

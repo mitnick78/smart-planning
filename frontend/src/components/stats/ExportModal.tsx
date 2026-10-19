@@ -1,228 +1,258 @@
-import { useState } from "react";
-import { Modal, Stack, Text, Group, Button, Box } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
-import { IconDownload } from "@tabler/icons-react";
-import { exportToExcel, exportToPdf } from "@/api";
+// ============================================================
+//  frontend/src/components/stats/ExportModal.tsx
+//  Export par plage de dates (multi-années)
+// ============================================================
 
-const MONTH_NAMES = [
-  "Jan",
-  "Fév",
-  "Mar",
-  "Avr",
-  "Mai",
-  "Juin",
-  "Juil",
-  "Août",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Déc",
-];
+import { useState } from "react";
+import {
+  Modal,
+  Button,
+  Group,
+  Stack,
+  Select,
+  Text,
+  Alert,
+  Divider,
+} from "@mantine/core";
+import {
+  IconFileSpreadsheet,
+  IconFileTypePdf,
+  IconAlertCircle,
+} from "@tabler/icons-react";
+import { invoke } from "@tauri-apps/api/core";
+import { useAppStore } from "@/store/appStore";
 
 interface ExportModalProps {
   opened: boolean;
   onClose: () => void;
-  currentYear: number;
-  currentMonth: number;
-  mode?: "excel" | "pdf";
 }
 
-export default function ExportModal({
-  opened,
-  onClose,
-  currentYear,
-  currentMonth,
-  mode = "excel",
-}: ExportModalProps) {
-  // month selected for export, default to current month
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([
-    currentMonth,
-  ]);
-  const [isExporting, setIsExporting] = useState(false);
+const MONTH_NAMES = [
+  "Janvier",
+  "Février",
+  "Mars",
+  "Avril",
+  "Mai",
+  "Juin",
+  "Juillet",
+  "Août",
+  "Septembre",
+  "Octobre",
+  "Novembre",
+  "Décembre",
+];
 
-  const toggleMonth = (month: number) => {
-    setSelectedMonths((prev) =>
-      prev.includes(month)
-        ? prev.filter((m) => m !== month)
-        : [...prev, month].sort((a, b) => a - b),
-    );
+// Génère les options mois
+const MONTH_OPTIONS = MONTH_NAMES.map((name, i) => ({
+  value: String(i + 1),
+  label: name,
+}));
+
+// Génère les années (5 ans en arrière, 2 ans en avant)
+function getYearOptions() {
+  const current = new Date().getFullYear();
+  const years = [];
+  for (let y = current - 5; y <= current + 2; y++) {
+    years.push({ value: String(y), label: String(y) });
+  }
+  return years;
+}
+
+const YEAR_OPTIONS = getYearOptions();
+
+export default function ExportModal({ opened, onClose }: ExportModalProps) {
+  const currentYear = useAppStore((s) => s.currentYear);
+  const currentMonth = useAppStore((s) => s.currentMonth);
+
+  // Plage par défaut : mois courant → mois courant
+  const [startYear, setStartYear] = useState(String(currentYear));
+  const [startMonth, setStartMonth] = useState(String(currentMonth));
+  const [endYear, setEndYear] = useState(String(currentYear));
+  const [endMonth, setEndMonth] = useState(String(currentMonth));
+
+  const [loadingExcel, setLoadingExcel] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Vérifie que la plage est valide
+  const isRangeValid = () => {
+    const start = parseInt(startYear) * 12 + parseInt(startMonth);
+    const end = parseInt(endYear) * 12 + parseInt(endMonth);
+    return start <= end;
   };
 
-  const selectAll = () =>
-    setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-  const clearAll = () => setSelectedMonths([]);
+  // Nombre de mois dans la plage
+  const nbMonths = () => {
+    const start = parseInt(startYear) * 12 + parseInt(startMonth);
+    const end = parseInt(endYear) * 12 + parseInt(endMonth);
+    return Math.max(0, end - start + 1);
+  };
 
-  const handleExport = async () => {
-    if (selectedMonths.length === 0) {
-      notifications.show({
-        message: "Sélectionne au moins un mois",
-        color: "yellow",
-      });
-      return;
-    }
-    setIsExporting(true);
+  // Label du fichier généré
+  const fileLabel = () => {
+    const sm = MONTH_NAMES[parseInt(startMonth) - 1]
+      .substring(0, 3)
+      .toLowerCase();
+    const em = MONTH_NAMES[parseInt(endMonth) - 1]
+      .substring(0, 3)
+      .toLowerCase();
+    return `planning_${sm}${startYear}_${em}${endYear}`;
+  };
+
+  const handleExportExcel = async () => {
+    if (!isRangeValid()) return;
+    setLoadingExcel(true);
+    setError(null);
+    setSuccess(null);
     try {
-      const path =
-        mode === "pdf"
-          ? await exportToPdf(currentYear, selectedMonths)
-          : await exportToExcel(currentYear, selectedMonths);
-
-      notifications.show({
-        message: `Fichier sauvegardé : ${path}`,
-        color: "green",
+      await invoke("export_to_excel", {
+        startYear: parseInt(startYear),
+        startMonth: parseInt(startMonth),
+        endYear: parseInt(endYear),
+        endMonth: parseInt(endMonth),
       });
-      onClose();
+      setSuccess(`Excel exporté : ${fileLabel()}.xlsx`);
     } catch (err) {
-      notifications.show({ message: `Erreur : ${err}`, color: "red" });
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsExporting(false);
+      setLoadingExcel(false);
     }
   };
 
-  // name generated by backend, used for display and download
-  const filename =
-    mode === "pdf"
-      ? `planning_${currentYear}.pdf`
-      : `planning_${currentYear}.xlsx`;
+  const handleExportPdf = async () => {
+    if (!isRangeValid()) return;
+    setLoadingPdf(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await invoke("export_to_pdf", {
+        startYear: parseInt(startYear),
+        startMonth: parseInt(startMonth),
+        endYear: parseInt(endYear),
+        endMonth: parseInt(endMonth),
+      });
+      setSuccess(`PDF exporté : ${fileLabel()}.pdf`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingPdf(false);
+    }
+  };
+
+  const handleClose = () => {
+    setError(null);
+    setSuccess(null);
+    onClose();
+  };
+
+  const valid = isRangeValid();
+  const nb = nbMonths();
 
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
-      title={mode === "pdf" ? "Exporter en PDF" : "Exporter en Excel"}
+      onClose={handleClose}
+      title="Exporter le planning"
       size="sm"
-      centered
     >
       <Stack gap="md">
-        <Text size="sm" c="dimmed">
-          Sélectionne les mois à exporter pour {currentYear}
-        </Text>
-
+        {/* ── Du mois ── */}
         <div>
-          <Group justify="space-between" mb={8}>
-            <Text size="xs" fw={500} c="dimmed" tt="uppercase">
-              Mois
-            </Text>
-            <Group gap={6}>
-              <Text
-                size="xs"
-                c="blue"
-                style={{ cursor: "pointer" }}
-                onClick={selectAll}
-              >
-                Tout sélectionner
-              </Text>
-              <Text size="xs" c="dimmed">
-                ·
-              </Text>
-              <Text
-                size="xs"
-                c="dimmed"
-                style={{ cursor: "pointer" }}
-                onClick={clearAll}
-              >
-                Effacer
-              </Text>
-            </Group>
+          <Text size="sm" fw={500} mb={6}>
+            Du mois
+          </Text>
+          <Group grow>
+            <Select
+              data={MONTH_OPTIONS}
+              value={startMonth}
+              onChange={(v) => v && setStartMonth(v)}
+              placeholder="Mois"
+            />
+            <Select
+              data={YEAR_OPTIONS}
+              value={startYear}
+              onChange={(v) => v && setStartYear(v)}
+              placeholder="Année"
+            />
           </Group>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 6,
-            }}
-          >
-            {MONTH_NAMES.map((name, i) => {
-              const month = i + 1;
-              const isSelected = selectedMonths.includes(month);
-              const isCurrent = month === currentMonth;
-
-              return (
-                <Box
-                  key={month}
-                  onClick={() => toggleMonth(month)}
-                  style={{
-                    padding: "6px 4px",
-                    borderRadius: 6,
-                    border: isSelected
-                      ? "2px solid var(--mantine-color-blue-5)"
-                      : "1px solid var(--mantine-color-dark-4)",
-                    background: isSelected
-                      ? "var(--mantine-color-blue-9)"
-                      : "transparent",
-                    textAlign: "center",
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                    position: "relative",
-                  }}
-                >
-                  <Text
-                    size="xs"
-                    fw={isSelected ? 600 : 400}
-                    c={isSelected ? "blue" : "dimmed"}
-                  >
-                    {name}
-                  </Text>
-                  {/* Indicateur mois courant */}
-                  {isCurrent && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 2,
-                        right: 2,
-                        width: 4,
-                        height: 4,
-                        borderRadius: "50%",
-                        background: "var(--mantine-color-blue-5)",
-                      }}
-                    />
-                  )}
-                </Box>
-              );
-            })}
-          </div>
         </div>
 
-        <Box
-          p="xs"
-          style={{
-            background: "var(--mantine-color-dark-6)",
-            borderRadius: 8,
-            border: "1px solid var(--mantine-color-dark-4)",
-          }}
-        >
-          <Group gap="xs">
-            <Text size="xs" style={{ fontSize: 16 }}>
-              📄
-            </Text>
-            <div>
-              <Text size="xs" fw={500}>
-                {filename}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {selectedMonths.length === 0
-                  ? "Aucun mois sélectionné"
-                  : `${selectedMonths.map((m) => MONTH_NAMES[m - 1]).join(", ")}`}
-              </Text>
-            </div>
+        {/* ── Au mois ── */}
+        <div>
+          <Text size="sm" fw={500} mb={6}>
+            Au mois
+          </Text>
+          <Group grow>
+            <Select
+              data={MONTH_OPTIONS}
+              value={endMonth}
+              onChange={(v) => v && setEndMonth(v)}
+              placeholder="Mois"
+            />
+            <Select
+              data={YEAR_OPTIONS}
+              value={endYear}
+              onChange={(v) => v && setEndYear(v)}
+              placeholder="Année"
+            />
           </Group>
-        </Box>
+        </div>
 
-        <Group justify="flex-end">
-          <Button variant="subtle" onClick={onClose}>
-            Annuler
+        {/* ── Résumé ── */}
+        {valid ? (
+          <Text size="xs" c="dimmed" ta="center">
+            {nb} mois — {fileLabel()}
+          </Text>
+        ) : (
+          <Text size="xs" c="red" ta="center">
+            La date de fin doit être après la date de début
+          </Text>
+        )}
+
+        <Divider />
+
+        {/* ── Erreur / succès ── */}
+        {error && (
+          <Alert
+            icon={<IconAlertCircle size={14} />}
+            color="red"
+            variant="light"
+          >
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert color="green" variant="light">
+            ✅ {success}
+          </Alert>
+        )}
+
+        {/* ── Boutons d'export ── */}
+        <Group grow>
+          <Button
+            leftSection={<IconFileSpreadsheet size={16} />}
+            color="green"
+            onClick={handleExportExcel}
+            loading={loadingExcel}
+            disabled={!valid || loadingPdf}
+          >
+            Excel
           </Button>
           <Button
-            leftSection={<IconDownload size={14} />}
-            onClick={handleExport}
-            loading={isExporting}
-            disabled={selectedMonths.length === 0}
+            leftSection={<IconFileTypePdf size={16} />}
+            color="red"
+            onClick={handleExportPdf}
+            loading={loadingPdf}
+            disabled={!valid || loadingExcel}
           >
-            Exporter{" "}
-            {selectedMonths.length > 0 ? `${selectedMonths.length} mois` : ""}
+            PDF
           </Button>
         </Group>
+
+        <Button variant="subtle" onClick={handleClose}>
+          Fermer
+        </Button>
       </Stack>
     </Modal>
   );

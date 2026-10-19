@@ -1,9 +1,10 @@
+// ============================================================
+//  Smart Planning Pro — src-tauri/src/export_service.rs
+//  Export Excel multi-années (plage de dates)
+// ============================================================
+
 use crate::planning_repository;
-use rust_xlsxwriter::{
-    Color, Format, FormatAlign, FormatBorder,
-    Workbook, XlsxError,
-};
-use std::collections::HashMap;
+use rust_xlsxwriter::*;
 use std::path::PathBuf;
 
 const MONTH_NAMES: [&str; 12] = [
@@ -11,23 +12,161 @@ const MONTH_NAMES: [&str; 12] = [
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
-const DAY_ABBR: [&str; 7] = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
-
-fn hex_to_color(hex: &str) -> Color {
-    let hex = hex.trim_start_matches('#');
-    let rgb = u32::from_str_radix(hex, 16).unwrap_or(0xFFFFFF);
-    Color::RGB(rgb)
+/// Génère la liste des (year, month) entre start et end inclus
+fn month_range(
+    start_year: i32, start_month: u32,
+    end_year:   i32, end_month:   u32,
+) -> Vec<(i32, u32)> {
+    let mut result = Vec::new();
+    let mut y = start_year;
+    let mut m = start_month;
+    loop {
+        result.push((y, m));
+        if y == end_year && m == end_month { break; }
+        m += 1;
+        if m > 12 { m = 1; y += 1; }
+    }
+    result
 }
 
-fn day_of_week(year: i32, month: u32, day: u32) -> u32 {
-    let d = day as i32;
-    let m = month as i32;
-    let y = if m < 3 { year - 1 } else { year };
-    let m = if m < 3 { m + 12 } else { m };
-    let k = y % 100;
-    let j = y / 100;
-    let h = (d + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 - 2 * j) % 7;
-    ((h + 5) % 7) as u32
+pub fn export_months_to_excel(
+    start_year:  i32,
+    start_month: u32,
+    end_year:    i32,
+    end_month:   u32,
+    output_path: &PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let months = month_range(start_year, start_month, end_year, end_month);
+
+    let mut workbook = Workbook::new();
+    let worksheet   = workbook.add_worksheet();
+
+    // ── Formats ──────────────────────────────────────────────
+    let fmt_header = Format::new()
+        .set_bold()
+        .set_font_color(Color::White)
+        .set_background_color(Color::RGB(0x1F4E79))
+        .set_align(FormatAlign::Center)
+        .set_border(FormatBorder::Thin);
+
+    let fmt_date = Format::new()
+        .set_bold()
+        .set_align(FormatAlign::Center)
+        .set_border(FormatBorder::Thin);
+
+    let fmt_label = Format::new()
+        .set_bold()
+        .set_border(FormatBorder::Thin);
+
+    let fmt_empty = Format::new()
+        .set_font_color(Color::RGB(0xAAAAAA))
+        .set_align(FormatAlign::Center)
+        .set_border(FormatBorder::Thin);
+
+    // ── Titre global ─────────────────────────────────────────
+    let title = if start_year == end_year {
+        format!("Planning {} — {} à {}",
+            start_year,
+            MONTH_NAMES[(start_month - 1) as usize],
+            MONTH_NAMES[(end_month   - 1) as usize],
+        )
+    } else {
+        format!("Planning {} {} → {} {}",
+            MONTH_NAMES[(start_month - 1) as usize], start_year,
+            MONTH_NAMES[(end_month   - 1) as usize], end_year,
+        )
+    };
+
+    let fmt_title = Format::new()
+        .set_bold()
+        .set_font_size(14.0)
+        .set_font_color(Color::RGB(0x1F4E79));
+
+    worksheet.write_with_format(0, 0, &title, &fmt_title)?;
+
+    // ── Une colonne par mois ──────────────────────────────────
+    // Col layout : col_base + 0 = date, col_base + 1 = label
+    // Chaque mois prend 2 colonnes + 1 de séparation
+
+    let col_stride: u16 = 3; // 2 colonnes données + 1 vide
+
+    for (month_idx, &(year, month)) in months.iter().enumerate() {
+        let col_base = (month_idx as u16) * col_stride;
+
+        // Données du mois
+        let entries = planning_repository::get_by_month(year, month)
+            .unwrap_or_default();
+
+        // Index par date
+        let mut day_map: std::collections::HashMap<String, Vec<(String, String)>> =
+            std::collections::HashMap::new();
+        for entry in &entries {
+            let label = entry.label_name.clone().unwrap_or_default();
+            let color = entry.label_color.clone()
+                .unwrap_or_else(|| "#CCCCCC".to_string());
+            day_map.entry(entry.date.clone()).or_default()
+                   .push((label, color));
+        }
+
+        // En-tête du mois (ligne 1)
+        let month_header = if start_year != end_year {
+            format!("{} {}", MONTH_NAMES[(month - 1) as usize], year)
+        } else {
+            MONTH_NAMES[(month - 1) as usize].to_string()
+        };
+        worksheet.write_with_format(1, col_base, &month_header, &fmt_header)?;
+        worksheet.write_with_format(1, col_base + 1, "Label", &fmt_header)?;
+
+        // Largeur des colonnes
+        worksheet.set_column_width(col_base,     12.0)?;
+        worksheet.set_column_width(col_base + 1, 18.0)?;
+
+        // Jours du mois
+        let total_days = days_in_month(year, month);
+        for day in 1..=total_days {
+            let row = (day + 1) as u32; // ligne 2 = jour 1
+            let date_str = format!("{:04}-{:02}-{:02}", year, month, day);
+            let date_label = format!("{:02}/{:02}", day, month);
+
+            if let Some(day_entries) = day_map.get(&date_str) {
+                // Couleur de fond
+                let color_hex = &day_entries[0].1;
+                let bg = hex_to_xlsx_color(color_hex);
+
+                let fmt_cell_date = Format::new()
+                    .set_bold()
+                    .set_align(FormatAlign::Center)
+                    .set_background_color(bg)
+                    .set_border(FormatBorder::Thin);
+
+                let fmt_cell_label = Format::new()
+                    .set_bold()
+                    .set_background_color(bg)
+                    .set_border(FormatBorder::Thin);
+
+                let names: Vec<String> = day_entries.iter()
+                    .map(|(n, _)| n.to_uppercase())
+                    .collect();
+
+                worksheet.write_with_format(row, col_base,     &date_label,      &fmt_cell_date)?;
+                worksheet.write_with_format(row, col_base + 1, &names.join(" / "), &fmt_cell_label)?;
+            } else {
+                worksheet.write_with_format(row, col_base,     &date_label, &fmt_date)?;
+                worksheet.write_with_format(row, col_base + 1, "",          &fmt_empty)?;
+            }
+
+            // Hauteur de ligne
+            worksheet.set_row_height(row, 16.0)?;
+        }
+
+        // Colonne séparatrice (vide)
+        worksheet.set_column_width(col_base + 2, 1.0)?;
+    }
+
+    workbook.save(output_path)?;
+    println!("Export Excel : {:?}", output_path);
+    Ok(())
 }
 
 fn days_in_month(year: i32, month: u32) -> u32 {
@@ -39,119 +178,9 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     }
 }
 
-pub fn export_months_to_excel(
-    year: i32,
-    months: &[u32],
-    output_path: &PathBuf,
-) -> Result<(), XlsxError> {
-
-    let mut workbook = Workbook::new();
-    let sheet = workbook.add_worksheet();
-    sheet.set_name(&format!("Planning {}", year))?;
-    sheet.set_landscape();
-    sheet.set_paper_size(9);
-    sheet.set_print_fit_to_pages(1,0);
-
-    // Formats 
-    let title_format = Format::new()
-        .set_bold()
-        .set_font_size(11.0)
-        .set_align(FormatAlign::Center)
-        .set_align(FormatAlign::VerticalCenter)
-        .set_background_color(Color::RGB(0x1F4E79))
-        .set_font_color(Color::White)
-        .set_border(FormatBorder::Thin);
-
-    let empty_format = Format::new()
-        .set_border(FormatBorder::Thin)
-        .set_align(FormatAlign::Left)
-        .set_align(FormatAlign::VerticalCenter)
-        .set_font_size(9.0)
-        .set_font_color(Color::RGB(0x888888))
-        .set_background_color(Color::White);
-
-    // width columns
-    // every month column has the same width, enough for "mer. 31/12  NAME LABEL"
-    for (i, _) in months.iter().enumerate() {
-        sheet.set_column_width(i as u16, 22.0)?;
-    }
-
-    // line 0 : title with month names
-    for (col, &month) in months.iter().enumerate() {
-        sheet.write_with_format(
-            0, col as u16,
-            &format!("{} {}", MONTH_NAMES[(month - 1) as usize].to_uppercase(), year),
-            &title_format,
-        )?;
-    }
-    sheet.set_row_height(0, 22.0)?;
-
-    // line days: 1 to 31 (max) with entries
-    // every month has its own column, so we can have up to 31 lines (for the longest month) and 12 columns (for all months)
-    let max_days = 31u32;
-
-    for day in 1..=max_days {
-        let row = day as u32; // line 1 à 31
-        sheet.set_row_height(row, 18.0)?;
-
-        for (col, &month) in months.iter().enumerate() {
-            let total = days_in_month(year, month);
-
-            if day > total {
-                // this day doesn't exist in this month, gray cell
-                let gray_format = Format::new()
-                    .set_border(FormatBorder::Thin)
-                    .set_background_color(Color::RGB(0xEEEEEE));
-                sheet.write_with_format(row, col as u16, "", &gray_format)?;
-                continue;
-            }
-
-            let date_str = format!("{:04}-{:02}-{:02}", year, month, day);
-            let dow = day_of_week(year, month, day);
-            let day_abbr = DAY_ABBR[dow as usize];
-            let date_label = format!("{} {:02}/{:02}", day_abbr, day, month);
-
-            // look for entries of this day in the month
-            //we charged all entries of the month at once to avoid multiple database calls, then we group them by day in a HashMap
-            let entries = planning_repository::get_by_month(year, month)
-                .unwrap_or_default();
-
-            let mut day_map: HashMap<String, Vec<(String, String)>> = HashMap::new();
-            for entry in &entries {
-                let label = entry.label_name.clone().unwrap_or_default();
-                let color = entry.label_color.clone()
-                    .unwrap_or_else(|| "#FFFFFF".to_string());
-                day_map.entry(entry.date.clone()).or_default()
-                       .push((label, color));
-            }
-
-            if let Some(day_entries) = day_map.get(&date_str) {
-                // cell with entries, we take the color of the first entry as background color, and we list all labels in the cell content
-                let (_, label_color) = &day_entries[0];
-
-                let cell_format = Format::new()
-                    .set_border(FormatBorder::Thin)
-                    .set_background_color(hex_to_color(label_color))
-                    .set_font_color(Color::Black)
-                    .set_bold()
-                    .set_align(FormatAlign::Left)
-                    .set_align(FormatAlign::VerticalCenter)
-                    .set_font_size(9.0);
-
-                // "mar. 01/04  NOM LABEL"
-                let names: Vec<String> = day_entries.iter()
-                    .map(|(name, _)| name.to_uppercase())
-                    .collect();
-                let content = format!("{}  {}", date_label, names.join(" / "));
-
-                sheet.write_with_format(row, col as u16, &content, &cell_format)?;
-            } else {
-                // Empty cell — just the date
-                sheet.write_with_format(row, col as u16, &date_label, &empty_format)?;
-            }
-        }
-    }
-
-    workbook.save(output_path)?;
-    Ok(())
+fn hex_to_xlsx_color(hex: &str) -> Color {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 { return Color::RGB(0xCCCCCC); }
+    let val = u32::from_str_radix(hex, 16).unwrap_or(0xCCCCCC);
+    Color::RGB(val)
 }

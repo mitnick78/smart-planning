@@ -9,19 +9,16 @@ import {
   Button,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconDownload, IconFileTypePdf } from "@tabler/icons-react";
+import { IconUpload } from "@tabler/icons-react";
 import { useStats } from "@/hooks";
 import { PERIOD_EMOJI } from "@/types";
 import type { Period } from "@/types";
-
 import ExportModal from "./ExportModal";
 
 export default function StatsPanel() {
-  const { groupedStats, totalAssigned, currentYear, currentMonth } = useStats();
-
+  const { groupedStats, totalAssigned } = useStats();
   const [exportOpened, { open: openExport, close: closeExport }] =
     useDisclosure(false);
-  const [pdfOpened, { open: openPdf, close: closePdf }] = useDisclosure(false);
 
   return (
     <>
@@ -105,45 +102,19 @@ export default function StatsPanel() {
 
         <Divider />
 
-        {/* Boutons Export */}
-        <Group grow>
-          <Button
-            variant="subtle"
-            leftSection={<IconDownload size={14} />}
-            size="xs"
-            onClick={openExport}
-          >
-            Excel
-          </Button>
-          <Button
-            variant="subtle"
-            color="red"
-            leftSection={<IconFileTypePdf size={14} />}
-            size="xs"
-            onClick={openPdf}
-          >
-            PDF
-          </Button>
-        </Group>
+        {/* Bouton Export unique */}
+        <Button
+          variant="subtle"
+          leftSection={<IconUpload size={14} />}
+          size="xs"
+          fullWidth
+          onClick={openExport}
+        >
+          Exporter
+        </Button>
       </Stack>
 
-      {/* Modale Excel */}
-      <ExportModal
-        opened={exportOpened}
-        onClose={closeExport}
-        currentYear={currentYear}
-        currentMonth={currentMonth}
-        mode="excel"
-      />
-
-      {/* Modale PDF */}
-      <ExportModal
-        opened={pdfOpened}
-        onClose={closePdf}
-        currentYear={currentYear}
-        currentMonth={currentMonth}
-        mode="pdf"
-      />
+      <ExportModal opened={exportOpened} onClose={closeExport} />
     </>
   );
 }

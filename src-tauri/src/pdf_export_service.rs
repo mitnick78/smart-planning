@@ -1,4 +1,8 @@
-
+// ============================================================
+//  Smart Planning Pro — src-tauri/src/pdf_export_service.rs
+//  Export PDF multi-années (plage de dates)
+//  API : printpdf 0.7.0
+// ============================================================
 
 use crate::planning_repository;
 use printpdf::*;
@@ -15,9 +19,27 @@ const MONTH_NAMES: [&str; 12] = [
 const DAY_ABBR: [&str; 7] = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 
 // A4 Paysage
-const PAGE_WIDTH_MM: f32  = 297.0;
+const PAGE_WIDTH_MM:  f32 = 297.0;
 const PAGE_HEIGHT_MM: f32 = 210.0;
-const MARGIN_MM: f32      = 10.0;
+const MARGIN_MM:      f32 = 10.0;
+
+// ── Helpers ───────────────────────────────────────────────────
+
+fn month_range(
+    start_year: i32, start_month: u32,
+    end_year:   i32, end_month:   u32,
+) -> Vec<(i32, u32)> {
+    let mut result = Vec::new();
+    let mut y = start_year;
+    let mut m = start_month;
+    loop {
+        result.push((y, m));
+        if y == end_year && m == end_month { break; }
+        m += 1;
+        if m > 12 { m = 1; y += 1; }
+    }
+    result
+}
 
 fn day_of_week(year: i32, month: u32, day: u32) -> u32 {
     let d = day as i32;
@@ -50,53 +72,52 @@ fn hex_to_rgb(hex: &str) -> (f32, f32, f32) {
 
 fn draw_rect(
     layer: &PdfLayerReference,
-    x: f32, y: f32,
-    width: f32, height: f32,
+    x: f32, y: f32, width: f32, height: f32,
     r: f32, g: f32, b: f32,
 ) {
     layer.set_fill_color(Color::Rgb(Rgb::new(r, g, b, None)));
-    layer.add_rect(Rect::new(
-        Mm(x),
-        Mm(y),
-        Mm(x + width),
-        Mm(y + height),
-    ));
+    layer.add_rect(Rect::new(Mm(x), Mm(y), Mm(x + width), Mm(y + height)));
 }
 
-fn draw_separator(
-    layer: &PdfLayerReference,
-    x: f32, y1: f32, y2: f32,
-) {
+fn draw_separator(layer: &PdfLayerReference, x: f32, y1: f32, y2: f32) {
     layer.set_outline_color(Color::Rgb(Rgb::new(0.8, 0.8, 0.8, None)));
     layer.set_outline_thickness(0.3);
-
-    let line = Line {
+    layer.add_line(Line {
         points: vec![
             (Point::new(Mm(x), Mm(y1)), false),
             (Point::new(Mm(x), Mm(y2)), false),
         ],
         is_closed: false,
-    };
-
-    layer.add_line(line);
+    });
 }
 
+// ── Export principal ──────────────────────────────────────────
+
 pub fn export_months_to_pdf(
-    year: i32,
-    months: &[u32],
+    start_year:  i32,
+    start_month: u32,
+    end_year:    i32,
+    end_month:   u32,
     output_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
+    let months = month_range(start_year, start_month, end_year, end_month);
+
+    // Titre du document
+    let title = if start_year == end_year {
+        format!("Planning {}", start_year)
+    } else {
+        format!("Planning {} - {}", start_year, end_year)
+    };
+
     let (doc, page1, layer1) = PdfDocument::new(
-        &format!("Planning {}", year),
+        &title,
         Mm(PAGE_WIDTH_MM),
         Mm(PAGE_HEIGHT_MM),
         "Layer 1",
     );
 
     let current_layer = doc.get_page(page1).get_layer(layer1);
-
-    // Fonts
     let font      = doc.add_builtin_font(BuiltinFont::Helvetica)?;
     let font_bold = doc.add_builtin_font(BuiltinFont::HelveticaBold)?;
 
@@ -111,14 +132,14 @@ pub fn export_months_to_pdf(
     // Titre général
     current_layer.set_fill_color(Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None)));
     current_layer.use_text(
-        &format!("Planning {}", year),
+        &title,
         10.0,
         Mm(MARGIN_MM),
         Mm(PAGE_HEIGHT_MM - MARGIN_MM + 2.0),
         &font_bold,
     );
 
-    for (month_idx, &month) in months.iter().enumerate() {
+    for (month_idx, &(year, month)) in months.iter().enumerate() {
         let col_x = MARGIN_MM + (month_idx as f32 * col_width);
 
         // Données du mois
@@ -134,14 +155,20 @@ pub fn export_months_to_pdf(
                    .push((label, color));
         }
 
-        // En-tête mois — fond bleu foncé
+        // En-tête du mois
         let header_y = PAGE_HEIGHT_MM - MARGIN_MM - header_height;
         draw_rect(&current_layer, col_x, header_y, col_width - 1.0, header_height, 0.12, 0.31, 0.47);
 
-        // Texte mois en blanc
+        // Nom du mois (+ année si multi-années)
+        let month_label = if start_year != end_year {
+            format!("{} {}", MONTH_NAMES[(month - 1) as usize], year)
+        } else {
+            MONTH_NAMES[(month - 1) as usize].to_string()
+        };
+
         current_layer.set_fill_color(Color::Rgb(Rgb::new(1.0, 1.0, 1.0, None)));
         current_layer.use_text(
-            MONTH_NAMES[(month - 1) as usize],
+            &month_label,
             7.0,
             Mm(col_x + 1.0),
             Mm(header_y + 2.5),
@@ -177,7 +204,6 @@ pub fn export_months_to_pdf(
                     .collect();
 
                 let content = format!("{}  {}", date_label, names.join(" / "));
-
                 current_layer.use_text(
                     &content,
                     7.0,
@@ -187,10 +213,9 @@ pub fn export_months_to_pdf(
                 );
 
             } else {
-                // Cellule vide — fond gris clair
+                // Cellule vide
                 draw_rect(&current_layer, col_x, row_y, col_width - 1.0, row_height - 0.3, 0.98, 0.98, 0.98);
 
-                // Date en gris
                 current_layer.set_fill_color(Color::Rgb(Rgb::new(0.6, 0.6, 0.6, None)));
                 current_layer.use_text(
                     &date_label,
@@ -213,7 +238,6 @@ pub fn export_months_to_pdf(
         }
     }
 
-    // Sauvegarde
     let file = File::create(output_path)?;
     doc.save(&mut BufWriter::new(file))?;
 
