@@ -113,6 +113,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Smart Planning Pro ${{ github.ref_name }}"
+          args: --target ${{ matrix.target }}
           releaseBody: |
             ## Smart Planning Pro ${{ github.ref_name }}
 
