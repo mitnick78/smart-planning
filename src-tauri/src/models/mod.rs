@@ -112,6 +112,13 @@ impl PlanningEntry {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SchoolHoliday {
+    pub date: String,
+    pub zone: String,
+    pub name: String,
+}
+
 //stats
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

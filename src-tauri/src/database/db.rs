@@ -49,6 +49,21 @@ pub fn initialize() -> Result<()> {
         -- Index de performance sur la date
         CREATE INDEX IF NOT EXISTS idx_planning_date
             ON planning(date);
+        
+        -- Table vacances scolaires (cache local)
+        CREATE TABLE IF NOT EXISTS school_holidays (
+            id    INTEGER PRIMARY KEY AUTOINCREMENT,
+            date  DATE NOT NULL,
+            zone  TEXT NOT NULL CHECK(zone IN ('A', 'B', 'C')),
+            name  TEXT NOT NULL,
+            UNIQUE(date, zone)
+        );
+
+        -- Table settings (zone sélectionnée, etc.)
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
     ")?;
 
     Ok(())

@@ -1,11 +1,26 @@
 import { useMemo } from "react";
-import { Stack, Group, Text, ActionIcon, Button } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import {
+  Stack,
+  Group,
+  Text,
+  ActionIcon,
+  Button,
+  Select,
+  Tooltip,
+} from "@mantine/core";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconRefresh,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import { usePlanning } from "@/hooks";
+import { useSchoolHolidays } from "@/hooks/useSchoolHolidays";
 import CalendarDay from "./CalendarDay";
 
-const DAYS_OF_WEEK = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+import { open } from "@tauri-apps/plugin-shell";
 
+const DAYS_OF_WEEK = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MONTH_NAMES = [
   "Janvier",
   "Février",
@@ -25,6 +40,11 @@ export default function Calendar() {
   const { currentYear, currentMonth, goToNextMonth, goToPrevMonth, goToToday } =
     usePlanning();
 
+  const { zone, setZone, holidays, syncing, syncHolidays } = useSchoolHolidays(
+    currentYear,
+    currentMonth,
+  );
+
   const days = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -37,7 +57,6 @@ export default function Calendar() {
 
     const result: { date: string; day: number; isCurrentMonth: boolean }[] = [];
 
-    // days from previous month
     for (let i = offset - 1; i >= 0; i--) {
       const day = daysInPrevMonth - i;
       const month = currentMonth === 1 ? 12 : currentMonth - 1;
@@ -49,7 +68,6 @@ export default function Calendar() {
       });
     }
 
-    // days from current month
     for (let d = 1; d <= daysInMonth; d++) {
       result.push({
         date: `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
@@ -58,7 +76,6 @@ export default function Calendar() {
       });
     }
 
-    // days from next month
     const remaining = 42 - result.length;
     for (let d = 1; d <= remaining; d++) {
       const month = currentMonth === 12 ? 1 : currentMonth + 1;
@@ -82,12 +99,10 @@ export default function Calendar() {
     <Stack
       p="md"
       gap="sm"
-      style={{
-        height: "calc(100vh - 48px)", // 48px = hauteur du header
-        overflow: "hidden",
-      }}
+      style={{ height: "calc(100vh - 48px)", overflow: "hidden" }}
     >
       <Group justify="space-between">
+        {/* Month Navigation */}
         <Group gap="xs">
           <ActionIcon variant="subtle" onClick={goToPrevMonth}>
             <IconChevronLeft size={16} />
@@ -99,6 +114,49 @@ export default function Calendar() {
             <IconChevronRight size={16} />
           </ActionIcon>
         </Group>
+
+        {/* School Breaks */}
+        <Group gap="xs">
+          <Text size="xs" c="dimmed">
+            Zone scolaire
+          </Text>
+          <Select
+            size="xs"
+            w={100}
+            value={zone}
+            onChange={(v) => v && setZone(v)}
+            data={[
+              { value: "A", label: "Zone A" },
+              { value: "B", label: "Zone B" },
+              { value: "C", label: "Zone C" },
+            ]}
+          />
+          <Tooltip label="Voir les zones sur education.gouv.fr">
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              color="dimmed"
+              onClick={() =>
+                open(
+                  "https://www.education.gouv.fr/calendrier-scolaire-toutes-les-dates-des-cours-et-des-vacances-100148",
+                )
+              }
+            >
+              <IconInfoCircle size={14} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={`Sync vacances ${currentYear}`}>
+            <ActionIcon
+              variant="subtle"
+              color="yellow"
+              loading={syncing}
+              onClick={syncHolidays}
+            >
+              <IconRefresh size={16} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+
         <Button variant="subtle" size="xs" onClick={goToToday}>
           Aujourd'hui
         </Button>
@@ -128,6 +186,7 @@ export default function Calendar() {
             dayNumber={day}
             isToday={date === todayStr}
             isCurrentMonth={isCurrentMonth}
+            holidayName={holidays.get(date)} // ← nouveau
           />
         ))}
       </div>
