@@ -161,7 +161,6 @@ pub fn export_months_to_excel(
     }
 
     workbook.save(output_path)?;
-    println!("Export Excel : {:?}", output_path);
     Ok(())
 }
 

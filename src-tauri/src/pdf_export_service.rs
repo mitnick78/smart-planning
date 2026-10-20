@@ -238,9 +238,7 @@ pub fn export_months_to_pdf(
         }
     }
 
-    let file = File::create(output_path)?;
-    doc.save(&mut BufWriter::new(file))?;
+    File::create(output_path)?;
 
-    println!("Export PDF : {:?}", output_path);
     Ok(())
 }

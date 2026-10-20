@@ -16,7 +16,7 @@
     "@mantine/hooks": "^9.1.0",
     "@mantine/notifications": "^9.1.0",
     "@tabler/icons-react": "^3.41.1",
-    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-shell": "^2.5.0",
     "autoprefixer": "^10.5.0",
     "dayjs": "^1.11.20",

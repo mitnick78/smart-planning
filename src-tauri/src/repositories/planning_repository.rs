@@ -125,8 +125,6 @@ pub fn delete_by_date_and_period(date: &str, period: &str) -> Result<bool> {
 pub fn get_stats_by_month(year: i32, month: u32) -> Result<Vec<StatEntry>> {
     let conn = get_connection()?;
     let pattern = format!("{:04}-{:02}%", year, month);
-    println!("Pattern : {}", pattern);
-    println!("BDD : {:?}", crate::database::get_db_path());
 
     let mut stmt = conn.prepare(
         "SELECT l.name, l.color_hex, p.period, COUNT(*) as count
