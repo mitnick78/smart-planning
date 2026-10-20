@@ -238,7 +238,8 @@ pub fn export_months_to_pdf(
         }
     }
 
-    File::create(output_path)?;
+    let file = File::create(output_path)?;
+    doc.save(&mut BufWriter::new(file))?;
 
     Ok(())
 }
