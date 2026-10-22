@@ -1,249 +1,209 @@
 # 📅 Smart Planning Pro
 
-> Application de bureau moderne pour la gestion et l'analyse de plannings personnalisés.
+> Application de bureau pour gérer, visualiser et exporter vos plannings personnels ou familiaux.
 
-![Smart Planning Pro](https://img.shields.io/badge/version-1.0.0-blue)
-![Rust](https://img.shields.io/badge/Rust-1.77+-orange)
-![React](https://img.shields.io/badge/React-18+-61DAFB)
-![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8D8)
+![Version](https://img.shields.io/badge/version-0.1.2-blue)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
 ## ✨ Fonctionnalités
 
-- 📆 **Calendrier dynamique** — Navigation fluide entre les mois avec affichage coloré des labels
-- 🏷️ **Labels personnalisés** — Créez, modifiez et supprimez vos catégories avec couleurs personnalisées
-- ⏰ **Gestion des périodes** — Assignez des labels par créneau : Matin, Après-midi, Soir ou Journée
-- 📊 **Statistiques en temps réel** — Décompte automatique des créneaux par label et par période
-- 📤 **Export Excel & PDF** — Exportez vos plannings avec mise en forme colorée
-- 💾 **Persistance locale** — Données stockées en SQLite, fonctionne entièrement hors ligne
-- 🌙 **Thème sombre** — Interface moderne et élégante
+### 🗓️ Calendrier interactif
+
+- Navigation mois par mois
+- Affichage des créneaux par période (**Matin / Après-midi / Soir / Journée**)
+- Clic sur un jour pour assigner ou supprimer un label
+- Indicateur visuel du jour en cours
+
+### 🏷️ Labels personnalisés
+
+- Création de labels avec un nom et une couleur personnalisée
+- Suppression avec option de vider les jours associés
+- Persistance complète en base de données locale (SQLite)
+
+### 🏖️ Vacances scolaires (France)
+
+- Sélecteur de zone (**A / B / C**)
+- Synchronisation automatique depuis le calendrier officiel du [Ministère de l'Éducation Nationale](https://www.education.gouv.fr/calendrier-scolaire-toutes-les-dates-des-cours-et-des-vacances-100148)
+- Affichage en jaune pastel sur le calendrier
+- Cumul possible : si un jour est déjà labelisé, la couleur du label est prioritaire et un badge 🏖️ indique la période de vacances
+
+### 📊 Statistiques
+
+- Décompte automatique des jours par label sur le mois affiché
+- Mise à jour en temps réel
+
+### 📤 Export
+
+| Format            | Contenu                                                                                |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| **Excel (.xlsx)** | Date · Label (« Vacances scolaires » pour les jours sans label en période de vacances) |
+| **PDF**           | Calendrier visuel multi-mois en A4 paysage, avec couleurs des labels                   |
+
+Les fichiers sont enregistrés dans **Documents / Smart Planning Pro** sur votre ordinateur.
 
 ---
 
-## 📸 Aperçu
+## 💻 Installation
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Smart Planning Pro                                         │
-├──────────────┬──────────────────────────────┬───────────────┤
-│   LABELS     │         Avril 2026           │ STATISTIQUES  │
-│              │  Lun  Mar  Mer  Jeu  Ven...  │               │
-│ • École      │                              │ Total : 12    │
-│ • Maman      │  [🌅École] [ ] [🌙Maman]    │               │
-│ • Papy Michel│  [ ] [☀️École] [ ] [ ]      │ École  : 8j   │
-│              │                              │ Maman  : 4j   │
-│ Label actif  │                              │               │
-│ [🔵 École]   │                              │ Excel  | PDF  │
-└──────────────┴──────────────────────────────┴───────────────┘
-```
+### Télécharger l'application
 
----
+Rendez-vous sur la page [**Releases**](https://github.com/mitnick78/smart-planning-pro/releases/latest) et téléchargez le fichier correspondant à votre système :
 
-## 🚀 Installation
+| Système                             | Fichier à télécharger                    |
+| ----------------------------------- | ---------------------------------------- |
+| macOS (Apple Silicon — M1/M2/M3/M4) | `Smart.Planning.Pro_0.1.2_aarch64.dmg`   |
+| macOS (Intel)                       | `Smart.Planning.Pro_0.1.2_x86_64.dmg`    |
+| Windows                             | `Smart.Planning.Pro_0.1.2_x64-setup.exe` |
 
-### Téléchargement direct
+### macOS — première ouverture
 
-Télécharge la dernière version depuis les [Releases GitHub](../../releases) :
+Apple peut bloquer l'application car elle n'est pas signée. Pour l'ouvrir :
 
-| Plateforme                     | Fichier                                   |
-| ------------------------------ | ----------------------------------------- |
-| macOS Apple Silicon (M1/M2/M3) | `Smart.Planning.Pro_x.x.x_aarch64.dmg`    |
-| macOS Intel                    | `Smart.Planning.Pro_x.x.x_x64.dmg`        |
-| Windows                        | `Smart.Planning.Pro_x.x.x_x64_en-US.msi`  |
-| Linux                          | `smart-planning-pro_x.x.x_amd64.AppImage` |
+1. **Double-cliquez** sur le `.dmg` et faites glisser l'app dans **Applications**
+2. Faites **clic droit → Ouvrir** sur l'icône dans Applications
+3. Cliquez **Ouvrir** dans la boîte de dialogue qui apparaît
 
-### macOS — Si l'app est bloquée
+> Cette étape n'est nécessaire qu'une seule fois.
 
-```
-Clic droit sur l'app → Ouvrir → Ouvrir quand même
-```
+### Windows
 
-Ou via Terminal :
-
-```bash
-xattr -cr "/Applications/Smart Planning Pro.app"
-```
+Double-cliquez sur le fichier `.exe` et suivez l'assistant d'installation.
 
 ---
 
-## 🛠️ Développement
+## 🚀 Utilisation rapide
+
+### 1. Créer un label
+
+Dans le panneau gauche, cliquez sur **"+"**, saisissez un nom et choisissez une couleur. Le label est sauvegardé immédiatement.
+
+### 2. Assigner un label à un jour
+
+- Sélectionnez un label dans le panneau gauche (il devient actif)
+- Cliquez sur un jour du calendrier
+- Choisissez le créneau (Matin, Après-midi, Soir, ou Journée)
+
+### 3. Activer les vacances scolaires
+
+- Sélectionnez votre zone (A, B ou C) dans la barre du calendrier
+- Cliquez sur 🔄 pour synchroniser — une connexion internet est requise
+- Les jours de vacances apparaissent en jaune pastel
+
+### 4. Exporter
+
+- Cliquez sur **Export Excel** ou **Export PDF** dans la barre d'outils
+- Choisissez la plage de mois à exporter
+- Le fichier est généré dans **Documents / Smart Planning Pro**
+
+---
+
+## 🛠️ Stack technique
+
+| Composant             | Technologie                                                |
+| --------------------- | ---------------------------------------------------------- |
+| Framework desktop     | [Tauri 2](https://tauri.app/) (Rust)                       |
+| Interface utilisateur | React 18 + TypeScript                                      |
+| UI Components         | [Mantine](https://mantine.dev/)                            |
+| Base de données       | SQLite (via `rusqlite`)                                    |
+| Export Excel          | `rust_xlsxwriter`                                          |
+| Export PDF            | `printpdf`                                                 |
+| Vacances scolaires    | [API Éducation Nationale](https://data.education.gouv.fr/) |
+
+---
+
+## 🏗️ Développement local
 
 ### Prérequis
 
-- [Rust](https://rustup.rs/) 1.77+
-- [Node.js](https://nodejs.org/) 20+
-- [Tauri CLI](https://tauri.app/) 2.0
+- [Node.js](https://nodejs.org/) 18+
+- [Rust](https://www.rust-lang.org/tools/install) (stable)
+- [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
 
-### Installation
+### Lancer en mode développement
 
 ```bash
-# Clone le repo
-git clone https://github.com/TON-USERNAME/smart-planning-pro.git
+# Cloner le dépôt
+git clone https://github.com/mitnick78/smart-planning-pro.git
 cd smart-planning-pro
 
-# Installe toutes les dépendances
-make install
+# Installer les dépendances frontend
+cd frontend
+npm install
+
+# Lancer l'application
+npm run tauri dev
 ```
 
-### Commandes Makefile
+### Compiler pour la production
 
 ```bash
-make dev          # Lance l'app en développement
-make install      # Installe toutes les dépendances
-make build        # Build natif (architecture courante)
-make build-arm    # Build Apple Silicon (M1/M2/M3)
-make build-intel  # Build Intel
-make build-all    # Build les deux architectures
-make test         # Lance les tests Rust
-make fix-icons    # Convertit les icônes en RGBA
-make copy-arm     # Copie DMG Apple Silicon dans ~/Downloads/
-make copy-intel   # Copie DMG Intel dans ~/Downloads/
-make copy-all     # Copie les deux DMG dans ~/Downloads/
-make release      # Build + copie tout dans ~/Downloads/
-make clean        # Nettoie les fichiers de build
-make help         # Affiche toutes les commandes
+npm run tauri build
 ```
 
-### Release complète en une commande
-
-```bash
-make release
-```
-
-Ça fait tout automatiquement :
-
-1. Convertit les icônes en RGBA
-2. Build Apple Silicon
-3. Build Intel
-4. Copie les deux DMG dans `~/Downloads/`
-
-### Build manuel
-
-```bash
-# macOS Apple Silicon
-cargo tauri build --target aarch64-apple-darwin
-
-# macOS Intel
-cargo tauri build --target x86_64-apple-darwin
-
-# Windows (depuis Windows)
-cargo tauri build
-
-# Linux (depuis Linux)
-cargo tauri build
-```
+Les binaires sont générés dans `src-tauri/target/release/bundle/`.
 
 ---
 
-## 🏗️ Architecture
+## 📁 Structure du projet
 
 ```
 smart-planning-pro/
-├── Makefile                    # Commandes de build
-├── src-tauri/                  # Backend Rust
+├── frontend/                  # Interface React/TypeScript
 │   └── src/
-│       ├── lib.rs              # Point d'entrée Tauri
-│       ├── commands.rs         # Commandes Tauri (pont Rust ↔ React)
-│       ├── export_service.rs   # Export Excel
-│       ├── pdf_export_service.rs # Export PDF
-│       ├── database/
-│       │   └── mod.rs          # Connexion SQLite
-│       ├── models/
-│       │   └── mod.rs          # Structs Label, PlanningEntry, StatEntry
-│       └── repositories/
-│           ├── label_repository.rs
-│           └── planning_repository.rs
-│
-└── frontend/                   # Frontend React
+│       ├── components/        # Composants UI (Calendar, Labels, Stats…)
+│       ├── hooks/             # Logique métier (usePlanning, useSchoolHolidays…)
+│       └── store/             # État global (Zustand)
+└── src-tauri/                 # Backend Rust
     └── src/
-        ├── types/              # Interfaces TypeScript
-        ├── api/                # Couche invoke() Tauri
-        ├── store/              # État global Zustand
-        ├── hooks/              # Logique métier
-        └── components/         # Composants Mantine UI
-            ├── calendar/
-            ├── labels/
-            └── stats/
+        ├── commands.rs        # Commandes Tauri (bridge frontend ↔ backend)
+        ├── database/          # Initialisation SQLite
+        ├── repositories/      # Accès aux données
+        ├── export_service.rs  # Export Excel
+        └── pdf_export_service.rs  # Export PDF
 ```
 
 ---
 
-## 🗄️ Base de données
+## 📋 Changelog
 
-SQLite stockée dans :
+### v0.1.2
 
-- **macOS** : `~/Library/Application Support/smart-planning-pro/smart_planning.db`
-- **Windows** : `%APPDATA%\smart-planning-pro\smart_planning.db`
-- **Linux** : `~/.local/share/smart-planning-pro/smart_planning.db`
+- ✅ Ajout des vacances scolaires (zones A/B/C, sync API officielle)
+- ✅ Badge 🏖️ sur les jours avec label + vacances
+- ✅ Correction de l'export PDF (fichier vide)
+- ✅ Lien vers le calendrier officiel education.gouv.fr
+- ✅ Build macOS Intel (x86_64) ajouté
 
-### Schéma
+### v0.1.1
 
-```sql
-CREATE TABLE labels (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT    NOT NULL,
-    color_hex  TEXT    NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+- ✅ Export Excel et PDF
+- ✅ Statistiques par mois
+- ✅ Labels personnalisés avec couleurs
 
-CREATE TABLE planning (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    date       DATE    NOT NULL,
-    period     TEXT    NOT NULL CHECK(period IN ('matin', 'après-midi', 'soir', 'journée')),
-    label_id   INTEGER NOT NULL REFERENCES labels(id),
-    note       TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
+### v0.1.0
+
+- 🎉 Première version publique
+- Calendrier interactif avec labels
+- Base de données SQLite locale
 
 ---
 
-## 🧰 Stack Technique
+## 🤝 Contribuer
 
-### Backend
+Les contributions sont les bienvenues ! N'hésitez pas à :
 
-| Technologie                                        | Rôle                    |
-| -------------------------------------------------- | ----------------------- |
-| [Rust](https://www.rust-lang.org/)                 | Langage principal       |
-| [Tauri 2](https://tauri.app/)                      | Framework desktop       |
-| [SQLite](https://www.sqlite.org/)                  | Base de données locale  |
-| [rusqlite](https://github.com/rusqlite/rusqlite)   | Driver SQLite pour Rust |
-| [rust_xlsxwriter](https://docs.rs/rust_xlsxwriter) | Export Excel            |
-| [printpdf](https://docs.rs/printpdf)               | Export PDF              |
-| [serde](https://serde.rs/)                         | Sérialisation JSON      |
-
-### Frontend
-
-| Technologie                                   | Rôle            |
-| --------------------------------------------- | --------------- |
-| [React 18](https://react.dev/)                | Framework UI    |
-| [TypeScript](https://www.typescriptlang.org/) | Typage statique |
-| [Mantine](https://mantine.dev/)               | Design System   |
-| [Zustand](https://zustand-demo.pmnd.rs/)      | État global     |
-| [Vite](https://vitejs.dev/)                   | Bundler         |
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Notes par créneau
-- [ ] Vue hebdomadaire
-- [ ] Undo / Redo
-- [ ] Graphiques statistiques
-- [ ] Gestion multi-planning
-- [ ] Jours fériés automatiques
+- Ouvrir une [issue](https://github.com/mitnick78/smart-planning-pro/issues) pour signaler un bug ou proposer une fonctionnalité
+- Soumettre une Pull Request
 
 ---
 
 ## 📄 Licence
 
-MIT — voir [LICENSE](LICENSE)
+Ce projet est sous licence [MIT](LICENSE).
 
 ---
 
-## 👨‍💻 Auteur
-
-Développé par **Christophe** — Mantes-la-Jolie 🇫🇷
+<p align="center">Fait avec ❤️ par <a href="https://christophe-milliere.fr">Christophe Millière</a></p>
