@@ -195,7 +195,7 @@ smart-planning-pro/
 
 Les contributions sont les bienvenues ! N'hésitez pas à :
 
-- Ouvrir une [issue](https://github.com/mitnick78/smart-planning-pro/issues) pour signaler un bug ou proposer une fonctionnalité
+- Ouvrir une [issue](https://github.com/mitnick78/smart-planning/issues) pour signaler un bug ou proposer une fonctionnalité
 - Soumettre une Pull Request
 
 ---
