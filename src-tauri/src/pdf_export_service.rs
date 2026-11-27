@@ -84,10 +84,15 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     }
 }
 
+/// Gris neutre pour une couleur illisible (ex. base antérieure à la validation).
+const FALLBACK_RGB: (f32, f32, f32) = (0.5, 0.5, 0.5);
+
 fn hex_to_rgb(hex: &str) -> (f32, f32, f32) {
     let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return (0.5, 0.5, 0.5);
+    // Contrôle ASCII avant de découper : `len()` compte des octets, et un
+    // caractère multi-octets ferait paniquer le slicing `&hex[0..2]`.
+    if hex.len() != 6 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return FALLBACK_RGB;
     }
     let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(128) as f32 / 255.0;
     let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(128) as f32 / 255.0;
@@ -128,6 +133,9 @@ pub fn export_months_to_pdf(
     end_month: u32,
     output_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Fonction publique : on ne compte pas sur l'appelant pour borner la
+    // plage (un début après la fin bouclerait sans fin, un mois 0 paniquerait).
+    crate::validation::validate_month_range(start_year, start_month, end_year, end_month)?;
     let months = month_range(start_year, start_month, end_year, end_month);
 
     // Titre du document
@@ -286,4 +294,33 @@ pub fn export_months_to_pdf(
     doc.save(&mut BufWriter::new(file))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hex_to_rgb_parses_valid_colors() {
+        assert_eq!(hex_to_rgb("#ff0000"), (1.0, 0.0, 0.0));
+        assert_eq!(hex_to_rgb("00ff00"), (0.0, 1.0, 0.0));
+    }
+
+    #[test]
+    fn hex_to_rgb_falls_back_on_invalid_colors() {
+        // "é" fait 2 octets : 6 octets au total, mais pas 6 chiffres hex.
+        assert_eq!(hex_to_rgb("#é1234"), FALLBACK_RGB);
+        assert_eq!(hex_to_rgb("#zzzzzz"), FALLBACK_RGB);
+        assert_eq!(hex_to_rgb("#fff"), FALLBACK_RGB);
+    }
+
+    #[test]
+    fn rejects_inverted_range_without_writing_a_file() {
+        let path = std::env::temp_dir().join(format!(
+            "smart_planning_inverted_{}.pdf",
+            std::process::id()
+        ));
+        assert!(export_months_to_pdf(2026, 5, 2026, 3, &path).is_err());
+        assert!(!path.exists());
+    }
 }

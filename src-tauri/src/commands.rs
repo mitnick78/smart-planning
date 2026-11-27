@@ -143,7 +143,14 @@ pub async fn fetch_school_holidays(zone: String, year: i32) -> Result<usize, Str
     let zone_filter = format!("Zone {}", zone);
     let mut all_holidays: Vec<crate::models::SchoolHoliday> = Vec::new();
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .connect_timeout(HOLIDAYS_CONNECT_TIMEOUT)
+        .timeout(HOLIDAYS_REQUEST_TIMEOUT)
+        .build()
+        .map_err(|e| {
+            log::error!("client HTTP vacances : {e}");
+            HOLIDAYS_UNREACHABLE.to_string()
+        })?;
 
     for school_year in &school_years {
         // Paramètres encodés par reqwest, jamais concaténés à la main.
@@ -156,12 +163,17 @@ pub async fn fetch_school_holidays(zone: String, year: i32) -> Result<usize, Str
             .query(&[("where", filter.as_str()), ("limit", "100")])
             .send()
             .await
-            .map_err(|e| format!("Erreur réseau : {}", e))?;
+            .and_then(reqwest::Response::error_for_status)
+            .map_err(|e| {
+                // Délai dépassé, pas de réseau ou réponse 4xx/5xx.
+                log::error!("API vacances ({school_year}) : {e}");
+                HOLIDAYS_UNREACHABLE.to_string()
+            })?;
 
-        let api: ApiResponse = resp
-            .json()
-            .await
-            .map_err(|e| format!("Erreur JSON : {}", e))?;
+        let api: ApiResponse = resp.json().await.map_err(|e| {
+            log::error!("API vacances ({school_year}), réponse illisible : {e}");
+            "Réponse inattendue du service des vacances scolaires".to_string()
+        })?;
 
         for record in api.results {
             let name = record
@@ -213,6 +225,12 @@ pub async fn fetch_school_holidays(zone: String, year: i32) -> Result<usize, Str
 
 const HOLIDAYS_API_URL: &str =
     "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-calendrier-scolaire/records";
+
+/// Sans délai maximal, une API muette laisserait la synchro « en cours » à vie.
+const HOLIDAYS_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+const HOLIDAYS_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+const HOLIDAYS_UNREACHABLE: &str =
+    "Impossible de joindre le service des vacances scolaires. Vérifiez votre connexion et réessayez.";
 
 #[tauri::command]
 pub fn get_school_holidays_by_month(

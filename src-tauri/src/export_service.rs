@@ -53,6 +53,9 @@ pub fn export_months_to_excel(
     end_month: u32,
     output_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Fonction publique : on ne compte pas sur l'appelant pour borner la
+    // plage (un début après la fin bouclerait sans fin, un mois 0 paniquerait).
+    crate::validation::validate_month_range(start_year, start_month, end_year, end_month)?;
     let months = month_range(start_year, start_month, end_year, end_month);
 
     let mut workbook = Workbook::new();
@@ -213,4 +216,28 @@ fn hex_to_xlsx_color(hex: &str) -> Color {
     }
     let val = u32::from_str_radix(hex, 16).unwrap_or(0xCCCCCC);
     Color::RGB(val)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn unused_path(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("smart_planning_{name}_{}.xlsx", std::process::id()))
+    }
+
+    #[test]
+    fn rejects_inverted_range_without_writing_a_file() {
+        let path = unused_path("inverted");
+        // Avant le garde-fou, cet appel bouclait sans fin.
+        assert!(export_months_to_excel(2026, 5, 2026, 3, &path).is_err());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn rejects_month_zero_instead_of_panicking() {
+        let path = unused_path("month_zero");
+        assert!(export_months_to_excel(2026, 0, 2026, 3, &path).is_err());
+        assert!(!path.exists());
+    }
 }
