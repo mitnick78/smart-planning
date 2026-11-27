@@ -111,7 +111,7 @@ pub fn export_months_to_excel(
         let col_base = (month_idx as u16) * col_stride;
 
         // Données du mois
-        let entries = planning_repository::get_by_month(year, month).unwrap_or_default();
+        let entries = planning_repository::get_by_month(year, month)?;
 
         // Index par date
         let mut day_map: std::collections::HashMap<String, Vec<(String, String)>> =

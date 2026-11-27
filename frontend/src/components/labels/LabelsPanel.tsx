@@ -75,10 +75,16 @@ export default function LabelsPanel() {
       });
       closeDelete();
       setSelectedLabel(null);
-    } catch {
+    } catch (err) {
+      // Le backend renvoie un message en français (ex. label encore utilisé).
       notifications.show({
-        message: "Erreur lors de la suppression",
+        title: "Suppression impossible",
+        message:
+          typeof err === "string" && err.length > 0
+            ? err
+            : "Erreur lors de la suppression",
         color: "red",
+        autoClose: 8000,
       });
     }
   };

@@ -1,4 +1,5 @@
 pub mod models;
+pub mod validation;
 
 #[path = "database/db.rs"]
 pub mod database;

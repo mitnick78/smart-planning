@@ -116,6 +116,16 @@ pub fn delete_by_date_and_period(date: &str, period: &str) -> Result<bool> {
     Ok(rows > 0)
 }
 
+/// Nombre d'affectations qui utilisent un label.
+pub fn count_by_label(label_id: i64) -> Result<i64> {
+    let conn = get_connection()?;
+    conn.query_row(
+        "SELECT COUNT(*) FROM planning WHERE label_id = ?1",
+        params![label_id],
+        |row| row.get(0),
+    )
+}
+
 // STATS
 // get stats for a month : count of entries by label and period
 pub fn get_stats_by_month(year: i32, month: u32) -> Result<Vec<StatEntry>> {
@@ -191,5 +201,26 @@ mod tests {
         setup();
         let stats = get_stats_by_month(2026, 3).expect("Erreur stats");
         let _ = stats;
+    }
+
+    #[test]
+    fn foreign_key_rejects_entry_for_unknown_label() {
+        setup();
+        let entry = PlanningEntry::new("2026-03-15", "matin", 9999);
+        let err = upsert(&entry).expect_err("la clé étrangère doit refuser");
+        assert!(err.to_string().contains("FOREIGN KEY"), "{err}");
+    }
+
+    #[test]
+    fn foreign_key_blocks_deleting_a_used_label_without_its_entries() {
+        setup();
+        let label_id = label_repository::create(&Label::new("École", "#3B82F6")).expect("label");
+        upsert(&PlanningEntry::new("2026-03-15", "matin", label_id)).expect("upsert");
+
+        assert!(label_repository::delete(label_id, false).is_err());
+        assert_eq!(count_by_label(label_id).expect("count"), 1);
+
+        label_repository::delete(label_id, true).expect("suppression complète");
+        assert_eq!(count_by_label(label_id).expect("count"), 0);
     }
 }

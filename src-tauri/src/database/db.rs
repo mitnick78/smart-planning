@@ -2,19 +2,25 @@ use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 
 //path database
-pub fn get_db_path() -> PathBuf {
+pub fn get_db_path() -> std::io::Result<PathBuf> {
     let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("tauri_app");
-    std::fs::create_dir_all(&path).expect("Failed to create database directory");
+    std::fs::create_dir_all(&path)?;
     path.push("smart_planning.db");
-    path
+    Ok(path)
 }
 
 //connect to database
 #[cfg(not(test))]
 pub fn get_connection() -> Result<Connection> {
-    let db_path = get_db_path();
+    let db_path = get_db_path().map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some(format!("dossier de la base inaccessible : {e}")),
+        )
+    })?;
     let conn = Connection::open(&db_path)?;
+    configure(&conn)?;
     Ok(conn)
 }
 
@@ -23,7 +29,17 @@ pub fn get_connection() -> Result<Connection> {
 // reçoivent une `&Connection` injectée.
 #[cfg(test)]
 pub fn get_connection() -> Result<Connection> {
-    test_db::open()
+    let conn = test_db::open()?;
+    configure(&conn)?;
+    Ok(conn)
+}
+
+/// Réglages appliqués à chaque connexion ouverte.
+///
+/// SQLite désactive les clés étrangères par défaut, et ce réglage vaut pour
+/// une connexion seulement : il faut donc le refaire à chaque ouverture.
+fn configure(conn: &Connection) -> Result<()> {
+    conn.pragma_update(None, "foreign_keys", true)
 }
 
 /// Base SQLite en mémoire, propre à chaque thread de test.

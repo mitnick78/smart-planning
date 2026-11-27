@@ -166,7 +166,7 @@ pub fn export_months_to_pdf(
         let col_x = MARGIN_MM + (month_idx as f32 * col_width);
 
         // Données du mois
-        let entries = planning_repository::get_by_month(year, month).unwrap_or_default();
+        let entries = planning_repository::get_by_month(year, month)?;
 
         let mut day_map: HashMap<String, Vec<(String, String)>> = HashMap::new();
         for entry in &entries {
