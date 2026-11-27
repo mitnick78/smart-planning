@@ -9,19 +9,20 @@ pub fn get_all() -> Result<Vec<Label>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, color_hex, created_at
          FROM labels
-         ORDER BY name"
+         ORDER BY name",
     )?;
 
-    let labels = stmt.query_map([], |row| {
-        Ok(Label {
-            id: row.get(0)?,         
-            name: row.get(1)?,       
-            color_hex: row.get(2)?,  
-            created_at: row.get(3)?, 
-        })
-    })?
-    .collect::<Result<Vec<Label>>>()?;
- 
+    let labels = stmt
+        .query_map([], |row| {
+            Ok(Label {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color_hex: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })?
+        .collect::<Result<Vec<Label>>>()?;
+
     Ok(labels)
 }
 
@@ -30,33 +31,31 @@ pub fn get_all() -> Result<Vec<Label>> {
 
 pub fn get_by_id(id: i64) -> Result<Option<Label>> {
     let conn = get_connection()?;
- 
+
     let mut stmt = conn.prepare(
         "SELECT id, name, color_hex, created_at
-         FROM labels WHERE id = ?"
+         FROM labels WHERE id = ?",
     )?;
- 
+
     // query_row = récupère UNE seule ligne
-    let result = stmt.query_row(
-        params![id],
-        |row| Ok(Label {
+    let result = stmt.query_row(params![id], |row| {
+        Ok(Label {
             id: row.get(0)?,
             name: row.get(1)?,
             color_hex: row.get(2)?,
             created_at: row.get(3)?,
         })
-    );
- 
+    });
+
     match result {
         Ok(label) => Ok(Some(label)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e), 
+        Err(e) => Err(e),
     }
 }
 
-// CREATE 
+// CREATE
 /// Insère un nouveau label et retourne son id généré
-
 pub fn create(label: &Label) -> Result<i64> {
     let conn = get_connection()?;
     conn.execute(
@@ -78,28 +77,22 @@ pub fn update(label: &Label) -> Result<usize> {
     Ok(rows_updated)
 }
 
-//   DELETE 
+//   DELETE
 // delete a label by id, if delete_entries is true, also delete associated planning entries
 pub fn delete(id: i64, delete_entries: bool) -> Result<()> {
     let mut conn = get_connection()?;
     let tx = conn.transaction()?;
- 
+
     if delete_entries {
-        tx.execute(
-            "DELETE FROM planning WHERE label_id = ?1",
-            params![id],
-        )?;
+        tx.execute("DELETE FROM planning WHERE label_id = ?1", params![id])?;
     }
 
     // delete label
-    tx.execute(
-        "DELETE FROM labels WHERE id = ?1",
-        params![id],
-    )?;
- 
+    tx.execute("DELETE FROM labels WHERE id = ?1", params![id])?;
+
     // Commit — valide la transaction
     tx.commit()?;
- 
+
     Ok(())
 }
 
@@ -109,43 +102,43 @@ pub fn delete(id: i64, delete_entries: bool) -> Result<()> {
 mod tests {
     use super::*;
     use crate::database::initialize;
- 
+
     fn setup() {
         initialize().expect("Init BDD échouée");
     }
- 
+
     #[test]
     fn test_create_and_get() {
         setup();
- 
+
         let label = Label::new("Test École", "#3B82F6");
         let id = create(&label).expect("Création échouée");
- 
+
         assert!(id > 0, "L'id doit être positif");
- 
+
         let found = get_by_id(id)
             .expect("Erreur get_by_id")
             .expect("Label non trouvé");
- 
+
         assert_eq!(found.name, "Test École");
         assert_eq!(found.color_hex, "#3B82F6");
     }
- 
+
     #[test]
     fn test_get_all() {
         setup();
         let labels = get_all().expect("Erreur get_all");
-        let _ = labels; 
+        let _ = labels;
     }
- 
+
     #[test]
     fn test_delete() {
         setup();
         let label = Label::new("À supprimer", "#EF4444");
         let id = create(&label).expect("Création échouée");
- 
+
         delete(id, false).expect("Suppression échouée");
- 
+
         let found = get_by_id(id).expect("Erreur");
         assert!(found.is_none(), "Le label doit être supprimé");
     }

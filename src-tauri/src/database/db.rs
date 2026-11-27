@@ -20,7 +20,8 @@ pub fn get_connection() -> Result<Connection> {
 //initialize database
 pub fn initialize() -> Result<()> {
     let conn = get_connection()?;
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         -- Table labels
         CREATE TABLE IF NOT EXISTS labels (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +65,8 @@ pub fn initialize() -> Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
-    ")?;
+    ",
+    )?;
 
     Ok(())
 }
@@ -76,7 +78,11 @@ mod tests {
     #[test]
     fn test_initialization() {
         let result = initialize();
-        assert!(result.is_ok(), "Database initialization failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Database initialization failed: {:?}",
+            result.err()
+        );
     }
 
     #[test]

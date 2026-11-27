@@ -20,7 +20,7 @@ pub fn get_by_month(year: i32, month: u32, zone: &str) -> Result<Vec<SchoolHolid
     let mut stmt = conn.prepare(
         "SELECT date, zone, name FROM school_holidays
          WHERE date LIKE ?1 AND zone = ?2
-         ORDER BY date"
+         ORDER BY date",
     )?;
     let rows = stmt.query_map(rusqlite::params![pattern, zone], |row| {
         Ok(SchoolHoliday {
