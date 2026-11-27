@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { useAppStore } from "@/store/appStore";
+import { toErrorMessage } from "@/api/errors";
 import * as planningApi from "@/api/planningApi";
 import { getStatsByMonth } from "@/api/planningApi";
 import type { Period, PlanningEntry } from "@/types";
@@ -35,7 +36,7 @@ export const usePlanning = () => {
         setEntries(data);
         setStats(stats);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur chargement");
+        setError(toErrorMessage(err, "Erreur chargement"));
       } finally {
         setLoading(false);
       }
@@ -105,7 +106,7 @@ export const usePlanning = () => {
         const stats = await getStatsByMonth(currentYear, currentMonth);
         setStats(stats);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur assignation");
+        setError(toErrorMessage(err, "Erreur assignation"));
         throw err;
       }
     },
@@ -124,7 +125,7 @@ export const usePlanning = () => {
         const stats = await getStatsByMonth(currentYear, currentMonth);
         setStats(stats);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur suppression");
+        setError(toErrorMessage(err, "Erreur suppression"));
         throw err;
       }
     },

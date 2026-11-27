@@ -18,6 +18,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconPlus, IconTrash, IconPencil } from "@tabler/icons-react";
 import { useLabels } from "@/hooks";
+import { toErrorMessage } from "@/api/errors";
 import type { Label } from "@/types";
 
 export default function LabelsPanel() {
@@ -56,9 +57,9 @@ export default function LabelsPanel() {
       setNewName("");
       setNewColor("#4dabf7");
       closeCreate();
-    } catch {
+    } catch (err) {
       notifications.show({
-        message: "Erreur lors de la création",
+        message: toErrorMessage(err, "Erreur lors de la création"),
         color: "red",
       });
     }
@@ -75,10 +76,13 @@ export default function LabelsPanel() {
       });
       closeDelete();
       setSelectedLabel(null);
-    } catch {
+    } catch (err) {
+      // Le backend renvoie un message en français (ex. label encore utilisé).
       notifications.show({
-        message: "Erreur lors de la suppression",
+        title: "Suppression impossible",
+        message: toErrorMessage(err, "Erreur lors de la suppression"),
         color: "red",
+        autoClose: 8000,
       });
     }
   };
@@ -95,11 +99,8 @@ export default function LabelsPanel() {
       notifications.show({ message: "Label mis à jour", color: "green" });
       closeEdit();
     } catch (err) {
-      if (err instanceof Error) {
-        console.log("erreur est survenu", err.message);
-      }
       notifications.show({
-        message: "Erreur lors de la mise à jour",
+        message: toErrorMessage(err, "Erreur lors de la mise à jour"),
         color: "red",
       });
     }

@@ -27,15 +27,14 @@ export const createLabel = async (input: LabelCreateinput): Promise<Label> => {
 };
 
 // UPDATE AN EXISTING LABEL
-export const updateLabel = async (input: LabelUpdateInput): Promise<Label> => {
-  console.log("api label", input)
+// The Rust command returns `()`, so nothing comes back on success.
+export const updateLabel = async (input: LabelUpdateInput): Promise<void> => {
   try {
-    const updatedLabel = await invoke<Label>("update_label", {
+    await invoke<void>("update_label", {
       id: input.id,
       name: input.name,
       colorHex: input.colorHex,
     });
-    return updatedLabel;
   } catch (error) {
     console.error("Error updating label:", error);
     throw error;

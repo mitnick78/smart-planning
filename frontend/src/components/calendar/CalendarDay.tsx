@@ -14,6 +14,7 @@ import { IconX } from "@tabler/icons-react";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "@/store/appStore";
 import { usePlanning } from "@/hooks";
+import { toErrorMessage } from "@/api/errors";
 import { PERIOD_EMOJI, PERIOD_ORDER } from "@/types";
 import type { Period } from "@/types";
 
@@ -89,8 +90,11 @@ export default function CalendarDay({
         message: `${PERIOD_EMOJI[period]} ${activeLabel.name} assigné`,
         color: "green",
       });
-    } catch {
-      notifications.show({ message: "Erreur assignation", color: "red" });
+    } catch (err) {
+      notifications.show({
+        message: toErrorMessage(err, "Erreur assignation"),
+        color: "red",
+      });
     }
   };
 
@@ -99,8 +103,11 @@ export default function CalendarDay({
     try {
       await clearSlot(date, period);
       notifications.show({ message: "Créneau vidé", color: "green" });
-    } catch {
-      notifications.show({ message: "Erreur suppression", color: "red" });
+    } catch (err) {
+      notifications.show({
+        message: toErrorMessage(err, "Erreur suppression"),
+        color: "red",
+      });
     }
   };
 

@@ -1,18 +1,17 @@
 // serde is used for serializing and deserializing data structures, which is common in Rust applications, especially when dealing with data that needs to be stored or transmitted. In this case, it is likely being used to define data models that can be easily converted to and from formats like JSON.
 use serde::{Deserialize, Serialize};
 
-
 //Label
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")] 
-pub struct Label{
+#[serde(rename_all = "camelCase")]
+pub struct Label {
     pub id: Option<i64>,
     pub name: String,
     pub color_hex: String,
     pub created_at: Option<String>,
 }
 
-impl Label{
+impl Label {
     pub fn new(name: &str, color_hex: &str) -> Self {
         Self {
             id: None,
@@ -27,7 +26,7 @@ impl Label{
         if color.len() != 7 || !color.starts_with('#') {
             return false;
         }
-        color[1..].chars().all(|c| c.is_digit(16))
+        color[1..].chars().all(|c| c.is_ascii_hexdigit())
     }
 }
 
@@ -38,26 +37,33 @@ pub enum Period {
     Day,
 }
 
-impl Period {
-    pub fn to_string(&self) -> String {
-        match self {
-            Period::Morning => "matin".to_string(),
-            Period::Afternoon => "après-midi".to_string(),
-            Period::Evening => "soir".to_string(),
-            Period::Day => "journée".to_string(),
-        }
+impl std::fmt::Display for Period {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Period::Morning => "matin",
+            Period::Afternoon => "après-midi",
+            Period::Evening => "soir",
+            Period::Day => "journée",
+        };
+        f.write_str(s)
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Period> {
+impl std::str::FromStr for Period {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "matin" => Some(Period::Morning),
-            "après-midi" => Some(Period::Afternoon),
-            "soir" => Some(Period::Evening),
-            "journée" => Some(Period::Day),
-            _ => None,
+            "matin" => Ok(Period::Morning),
+            "après-midi" => Ok(Period::Afternoon),
+            "soir" => Ok(Period::Evening),
+            "journée" => Ok(Period::Day),
+            _ => Err(()),
         }
     }
+}
 
+impl Period {
     pub fn emoji(&self) -> &str {
         match self {
             Period::Morning => "🌅",
@@ -71,14 +77,14 @@ impl Period {
 //PlanningEntry
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")] 
+#[serde(rename_all = "camelCase")]
 pub struct PlanningEntry {
     pub id: Option<i64>,
     pub date: String,
     pub period: String,
     pub label_id: i64,
     pub note: Option<String>,
-    
+
     pub label_name: Option<String>,
     pub label_color: Option<String>,
 
@@ -102,11 +108,12 @@ impl PlanningEntry {
     }
 
     pub fn display_label(&self) -> String {
-        let emoji = Period::from_str(&self.period).map_or("📅".to_string(), |p| p.emoji().to_string());
+        let emoji = self
+            .period
+            .parse::<Period>()
+            .map_or("📅".to_string(), |p| p.emoji().to_string());
 
-        let name = self.label_name
-        .as_deref()
-        .unwrap_or("Label inconnu");
+        let name = self.label_name.as_deref().unwrap_or("Label inconnu");
 
         format!("{} {}", emoji, name)
     }
@@ -122,7 +129,7 @@ pub struct SchoolHoliday {
 //stats
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")] 
+#[serde(rename_all = "camelCase")]
 pub struct StatEntry {
     pub label_name: String,
     pub label_color: String,

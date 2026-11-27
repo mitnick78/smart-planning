@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { useAppStore } from "@/store/appStore";
+import { toErrorMessage } from "@/api/errors";
 import * as labelApi from "@/api/labelApi";
 import type { LabelCreateinput, LabelUpdateInput } from "@/types";
 import * as planningApi from "@/api/planningApi";
@@ -28,11 +29,23 @@ export const useLabels = () => {
       const data = await labelApi.getLabels();
       setLabels(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
+      setError(toErrorMessage(err, "Erreur inconnue"));
     } finally {
       setLoading(false);
     }
   }, [setError, setLabels, setLoading]);
+
+  // reload entries and stats of the displayed month (they embed label name/color)
+  const refreshCurrentMonth = useCallback(async () => {
+    const { currentYear, currentMonth, setEntries, setStats } =
+      useAppStore.getState();
+    const [entries, stats] = await Promise.all([
+      planningApi.getPlanningByMonth(currentYear, currentMonth),
+      planningApi.getStatsByMonth(currentYear, currentMonth),
+    ]);
+    setEntries(entries);
+    setStats(stats);
+  }, []);
 
   // load initial labels on mount
   useEffect(() => {
@@ -51,7 +64,7 @@ export const useLabels = () => {
         setActiveLabelId(newLabel.id);
         return newLabel;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur création");
+        setError(toErrorMessage(err, "Erreur création"));
         throw err;
       } finally {
         setLoading(false);
@@ -74,22 +87,15 @@ export const useLabels = () => {
           colorHex: input.colorHex,
           createdAt: existingLabel?.createdAt ?? new Date().toISOString(), // garde la date de création
         });
-        const { currentYear, currentMonth, setEntries, setStats } =
-          useAppStore.getState();
-        const [entries, stats] = await Promise.all([
-          planningApi.getPlanningByMonth(currentYear, currentMonth),
-          planningApi.getStatsByMonth(currentYear, currentMonth),
-        ]);
-        setEntries(entries);
-        setStats(stats);
+        await refreshCurrentMonth();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur mise à jour");
+        setError(toErrorMessage(err, "Erreur mise à jour"));
         throw err;
       } finally {
         setLoading(false);
       }
     },
-    [labels, setError, setLoading, updateLabelStore],
+    [labels, refreshCurrentMonth, setError, setLoading, updateLabelStore],
   );
 
   const deleteLabel = useCallback(
@@ -99,14 +105,16 @@ export const useLabels = () => {
       try {
         await labelApi.deleteLabel(id, deleteEntries);
         removeLabelStore(id);
+        // the label's days were deleted too: calendar and stats must follow
+        if (deleteEntries) await refreshCurrentMonth();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur suppression");
+        setError(toErrorMessage(err, "Erreur suppression"));
         throw err;
       } finally {
         setLoading(false);
       }
     },
-    [removeLabelStore, setError, setLoading],
+    [refreshCurrentMonth, removeLabelStore, setError, setLoading],
   );
 
   // activeLabel is derived from activeLabelId and labels list

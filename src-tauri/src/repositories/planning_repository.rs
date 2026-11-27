@@ -18,10 +18,44 @@ pub fn get_by_month(year: i32, month: u32) -> Result<Vec<PlanningEntry>> {
          FROM planning p
          JOIN labels l ON p.label_id = l.id
          WHERE p.date LIKE ?1
-         ORDER BY p.date, p.period"
+         ORDER BY p.date, p.period",
     )?;
 
-    let entries = stmt.query_map(params![pattern], |row| {
+    let entries = stmt
+        .query_map(params![pattern], |row| {
+            Ok(PlanningEntry {
+                id: row.get(0)?,
+                date: row.get(1)?,
+                period: row.get(2)?,
+                label_id: row.get(3)?,
+                note: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+                label_name: row.get(7)?,
+                label_color: row.get(8)?,
+            })
+        })?
+        .collect::<Result<Vec<PlanningEntry>>>()?;
+
+    Ok(entries)
+}
+
+// GET BY DATE AND PERIOD
+// get a planning entry by date and period, including label name and color
+pub fn get_by_date_and_period(date: &str, period: &str) -> Result<Option<PlanningEntry>> {
+    let conn = get_connection()?;
+
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.date, p.period, p.label_id,
+                p.note, p.created_at, p.updated_at,
+                l.name AS label_name,
+                l.color_hex AS label_color
+         FROM planning p
+         JOIN labels l ON p.label_id = l.id
+         WHERE p.date = ?1 AND p.period = ?2",
+    )?;
+
+    let result = stmt.query_row(params![date, period], |row| {
         Ok(PlanningEntry {
             id: row.get(0)?,
             date: row.get(1)?,
@@ -33,44 +67,7 @@ pub fn get_by_month(year: i32, month: u32) -> Result<Vec<PlanningEntry>> {
             label_name: row.get(7)?,
             label_color: row.get(8)?,
         })
-    })?
-    .collect::<Result<Vec<PlanningEntry>>>()?;
-
-    Ok(entries)
-}
-
-// GET BY DATE AND PERIOD
-// get a planning entry by date and period, including label name and color
-pub fn get_by_date_and_period(
-    date: &str,
-    period: &str
-) -> Result<Option<PlanningEntry>> {
-    let conn = get_connection()?;
-
-    let mut stmt = conn.prepare(
-        "SELECT p.id, p.date, p.period, p.label_id,
-                p.note, p.created_at, p.updated_at,
-                l.name AS label_name,
-                l.color_hex AS label_color
-         FROM planning p
-         JOIN labels l ON p.label_id = l.id
-         WHERE p.date = ?1 AND p.period = ?2"
-    )?;
-
-    let result = stmt.query_row(
-        params![date, period],
-        |row| Ok(PlanningEntry {
-            id: row.get(0)?,
-            date: row.get(1)?,
-            period: row.get(2)?,
-            label_id: row.get(3)?,
-            note: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
-            label_name: row.get(7)?,
-            label_color: row.get(8)?,
-        })
-    );
+    });
 
     match result {
         Ok(entry) => Ok(Some(entry)),
@@ -82,7 +79,6 @@ pub fn get_by_date_and_period(
 /// INSERT ou UPDATE selon si le créneau existe déjà
 // if entry with same date and period exists, update it, otherwise insert a new one
 // UPSERT = UPDATE + INSERT
-
 pub fn upsert(entry: &PlanningEntry) -> Result<i64> {
     let conn = get_connection()?;
 
@@ -120,7 +116,17 @@ pub fn delete_by_date_and_period(date: &str, period: &str) -> Result<bool> {
     Ok(rows > 0)
 }
 
-// STATS 
+/// Nombre d'affectations qui utilisent un label.
+pub fn count_by_label(label_id: i64) -> Result<i64> {
+    let conn = get_connection()?;
+    conn.query_row(
+        "SELECT COUNT(*) FROM planning WHERE label_id = ?1",
+        params![label_id],
+        |row| row.get(0),
+    )
+}
+
+// STATS
 // get stats for a month : count of entries by label and period
 pub fn get_stats_by_month(year: i32, month: u32) -> Result<Vec<StatEntry>> {
     let conn = get_connection()?;
@@ -132,23 +138,24 @@ pub fn get_stats_by_month(year: i32, month: u32) -> Result<Vec<StatEntry>> {
          JOIN labels l ON p.label_id = l.id
          WHERE p.date LIKE ?1
          GROUP BY l.name, l.color_hex, p.period
-         ORDER BY l.name, p.period"
+         ORDER BY l.name, p.period",
     )?;
 
-    let stats = stmt.query_map(params![pattern], |row| {
-        Ok(StatEntry {
-            label_name: row.get(0)?,
-            label_color: row.get(1)?,
-            period: row.get(2)?,
-            count: row.get(3)?,
-        })
-    })?
-    .collect::<Result<Vec<StatEntry>>>()?;
+    let stats = stmt
+        .query_map(params![pattern], |row| {
+            Ok(StatEntry {
+                label_name: row.get(0)?,
+                label_color: row.get(1)?,
+                period: row.get(2)?,
+                count: row.get(3)?,
+            })
+        })?
+        .collect::<Result<Vec<StatEntry>>>()?;
 
     Ok(stats)
 }
 
-// TESTS 
+// TESTS
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,8 +173,7 @@ mod tests {
 
         //  create a label
         let label = Label::new("Test", "#3B82F6");
-        let label_id = label_repository::create(&label)
-            .expect("Création label échouée");
+        let label_id = label_repository::create(&label).expect("Création label échouée");
 
         // create a planning entry
         let entry = PlanningEntry::new("2026-03-15", "matin", label_id);
@@ -195,5 +201,26 @@ mod tests {
         setup();
         let stats = get_stats_by_month(2026, 3).expect("Erreur stats");
         let _ = stats;
+    }
+
+    #[test]
+    fn foreign_key_rejects_entry_for_unknown_label() {
+        setup();
+        let entry = PlanningEntry::new("2026-03-15", "matin", 9999);
+        let err = upsert(&entry).expect_err("la clé étrangère doit refuser");
+        assert!(err.to_string().contains("FOREIGN KEY"), "{err}");
+    }
+
+    #[test]
+    fn foreign_key_blocks_deleting_a_used_label_without_its_entries() {
+        setup();
+        let label_id = label_repository::create(&Label::new("École", "#3B82F6")).expect("label");
+        upsert(&PlanningEntry::new("2026-03-15", "matin", label_id)).expect("upsert");
+
+        assert!(label_repository::delete(label_id, false).is_err());
+        assert_eq!(count_by_label(label_id).expect("count"), 1);
+
+        label_repository::delete(label_id, true).expect("suppression complète");
+        assert_eq!(count_by_label(label_id).expect("count"), 0);
     }
 }

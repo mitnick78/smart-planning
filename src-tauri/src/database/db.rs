@@ -2,25 +2,86 @@ use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 
 //path database
-pub fn get_db_path() -> PathBuf {
+pub fn get_db_path() -> std::io::Result<PathBuf> {
     let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("tauri_app");
-    std::fs::create_dir_all(&path).expect("Failed to create database directory");
+    std::fs::create_dir_all(&path)?;
     path.push("smart_planning.db");
-    path
+    Ok(path)
 }
 
 //connect to database
+#[cfg(not(test))]
 pub fn get_connection() -> Result<Connection> {
-    let db_path = get_db_path();
+    let db_path = get_db_path().map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some(format!("dossier de la base inaccessible : {e}")),
+        )
+    })?;
     let conn = Connection::open(&db_path)?;
+    configure(&conn)?;
     Ok(conn)
+}
+
+// En test : jamais la base réelle de l'utilisateur.
+// Mesure transitoire (lot 0 de AUDIT.md) en attendant que les repositories
+// reçoivent une `&Connection` injectée.
+#[cfg(test)]
+pub fn get_connection() -> Result<Connection> {
+    let conn = test_db::open()?;
+    configure(&conn)?;
+    Ok(conn)
+}
+
+/// Réglages appliqués à chaque connexion ouverte.
+///
+/// SQLite désactive les clés étrangères par défaut, et ce réglage vaut pour
+/// une connexion seulement : il faut donc le refaire à chaque ouverture.
+fn configure(conn: &Connection) -> Result<()> {
+    conn.pragma_update(None, "foreign_keys", true)
+}
+
+/// Base SQLite en mémoire, propre à chaque thread de test.
+///
+/// Les repositories ouvrent une nouvelle connexion à chaque appel : une base
+/// `:memory:` classique serait vide à chaque fois. On utilise donc une base
+/// mémoire nommée en cache partagé, unique par thread (cargo test lance chaque
+/// test dans son propre thread), et maintenue en vie par une connexion gardée
+/// dans le thread-local.
+#[cfg(test)]
+mod test_db {
+    use rusqlite::{Connection, Result};
+    use std::cell::RefCell;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+
+    thread_local! {
+        static URI: String = format!(
+            "file:smart_planning_test_{}?mode=memory&cache=shared",
+            NEXT_ID.fetch_add(1, Ordering::Relaxed)
+        );
+        static KEEP_ALIVE: RefCell<Option<Connection>> = const { RefCell::new(None) };
+    }
+
+    pub fn open() -> Result<Connection> {
+        let uri = URI.with(String::clone);
+        KEEP_ALIVE.with(|keep| -> Result<()> {
+            if keep.borrow().is_none() {
+                *keep.borrow_mut() = Some(Connection::open(&uri)?);
+            }
+            Ok(())
+        })?;
+        Connection::open(&uri)
+    }
 }
 
 //initialize database
 pub fn initialize() -> Result<()> {
     let conn = get_connection()?;
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         -- Table labels
         CREATE TABLE IF NOT EXISTS labels (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +125,8 @@ pub fn initialize() -> Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
-    ")?;
+    ",
+    )?;
 
     Ok(())
 }
@@ -76,12 +138,46 @@ mod tests {
     #[test]
     fn test_initialization() {
         let result = initialize();
-        assert!(result.is_ok(), "Database initialization failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Database initialization failed: {:?}",
+            result.err()
+        );
     }
 
     #[test]
     fn test_get_connection() {
         let conn = get_connection();
         assert!(conn.is_ok(), "La connexion doit réussir");
+    }
+
+    #[test]
+    fn test_connection_never_uses_real_database_file() {
+        let conn = get_connection().expect("connexion de test");
+        // Une base en mémoire n'a pas de chemin de fichier (None ou "").
+        assert!(
+            matches!(conn.path(), None | Some("")),
+            "les tests ne doivent jamais ouvrir un fichier : {:?}",
+            conn.path()
+        );
+    }
+
+    #[test]
+    fn test_each_test_thread_gets_its_own_database() {
+        initialize().expect("init");
+        let conn = get_connection().expect("connexion");
+        conn.execute("INSERT INTO settings (key, value) VALUES ('k', 'v')", [])
+            .expect("insert");
+
+        let other_thread_sees_it = std::thread::spawn(|| {
+            initialize().expect("init");
+            let conn = get_connection().expect("connexion");
+            conn.query_row("SELECT COUNT(*) FROM settings", [], |r| r.get::<_, i64>(0))
+                .expect("count")
+        })
+        .join()
+        .expect("thread");
+
+        assert_eq!(other_thread_sees_it, 0);
     }
 }
