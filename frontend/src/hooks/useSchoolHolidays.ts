@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { notifications } from "@mantine/notifications";
+import { toErrorMessage } from "@/api/errors";
+
+const notifyError = (err: unknown, fallback: string) =>
+  notifications.show({ message: toErrorMessage(err, fallback), color: "red" });
 
 export interface SchoolHoliday {
   date: string;
@@ -15,9 +19,11 @@ export function useSchoolHolidays(year: number, month: number) {
 
   // Load the saved area at startup
   useEffect(() => {
-    invoke<string | null>("get_setting", { key: "school_zone" }).then((v) => {
-      if (v) setZoneState(v);
-    });
+    invoke<string | null>("get_setting", { key: "school_zone" })
+      .then((v) => {
+        if (v) setZoneState(v);
+      })
+      .catch((err) => notifyError(err, "Zone scolaire non chargée"));
   }, []);
 
   // Reload from SQLite whenever the month or region changes
@@ -26,14 +32,18 @@ export function useSchoolHolidays(year: number, month: number) {
       year,
       month,
       zone,
-    }).then((data) => {
-      setHolidays(new Map(data.map((h) => [h.date, h.name])));
-    });
+    })
+      .then((data) => {
+        setHolidays(new Map(data.map((h) => [h.date, h.name])));
+      })
+      .catch((err) => notifyError(err, "Vacances scolaires non chargées"));
   }, [year, month, zone]);
 
   const setZone = (z: string) => {
     setZoneState(z);
-    invoke("set_setting", { key: "school_zone", value: z });
+    invoke("set_setting", { key: "school_zone", value: z }).catch((err) =>
+      notifyError(err, "Zone scolaire non enregistrée"),
+    );
   };
 
   const syncHolidays = async () => {
@@ -54,10 +64,7 @@ export function useSchoolHolidays(year: number, month: number) {
         color: "yellow",
       });
     } catch (e) {
-      notifications.show({
-        message: `Erreur sync vacances : ${e}`,
-        color: "red",
-      });
+      notifyError(e, "Erreur de synchronisation des vacances");
     } finally {
       setSyncing(false);
     }
